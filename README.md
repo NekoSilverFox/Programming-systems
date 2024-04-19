@@ -32,45 +32,32 @@
 
 # 环境配置
 
-## 基于 docker
+## 使用 macOS
 
-尽量使用 `x86` 架构下进行实验，否则会造成调试上的很多麻烦
+1. 使用 `brew` 装必备包：
 
-> 基于 M-Chip Mac
-
-1. 安装 Docker
-
-    确保你的 M1 MacBook 上安装了最新版本的 Docker Desktop for Mac（Apple Silicon 版本）。这可以从 Docker 的官方网站直接下载安装。
-
-2. 启用模拟支持
-    Docker Desktop for Mac 支持使用 `QEMU` 模拟不同的架构。你需要确保 Docker 的设置中启用了这项功能。一般来说，这个功能默认是开启的。
-
-3. 使用 i386/ubuntu 镜像
-
-    为了在 M1 MacBook 上运行 Ubuntu 的 32 位版本，你可以使用 `i386/ubuntu` 镜像，这是专为 32 位环境准备的。你可以通过以下命令来拉取这个镜像：
-
-    ```
-    docker pull i386/ubuntu
+    ```bash
+    brew install mc ncurses
     ```
 
-4. 运行 Docker 容器
+2. 使用 `SOURCE_UTF8_linux_lab_rab` 包中的内容！！！这个包里的代码已经经过了重新编码和优化，支持 64 位环境
 
-5. 拉取镜像后，你可以使用以下命令来启动一个基于 i386/ubuntu 镜像的容器：
+3. 将 `Makefile` 中 `gcc -o absloadm.exe` 编译部分改为自己的 `-lncursesw` 环境，以便支持 `UTF-8`
 
+4. 然后执行以下命令进行编译测试
+    ```bash
+    # 编译工程
+    ./GenSysProg
+    
+    # 执行项目
+    ./StartTestTask
     ```
-    docker run -it --name=ProgSysx86 i386/ubuntu /bin/bash
-    ```
 
-    这个命令将启动一个 Ubuntu 容器，并且提供一个交互式的 Bash 会话，允许你在容器内执行命令。
+    
 
-**注意事项：**
 
-- **性能问题**：使用 QEMU 模拟 x86 架构在 ARM 架构上运行时可能会有性能损失。这是因为模拟需要在运行时翻译指令，这会增加额外的计算负担。
-- **软件兼容性**：一些软件可能在通过模拟在 ARM 上运行时遇到兼容性问题，特别是那些对性能有高要求或直接与硬件交互的程序。
 
----
-
-## 安装必备包
+## 使用 ubuntu
 
 > 参考文档：`Рекомендация_3_Низкоуровневый_эквивалент_готов_Что_дальше`
 
@@ -89,11 +76,38 @@ apt-get update && apt-get install -y mc libncurses5-dev make gcc vim
 
 ---
 
-然后将 `linux_lab_rab` 中那堆糟糕的文件转换为 `UTF-8` 编码后编译：
+然后将 `SOURCE_KOI8_linux_lab_rab` 中那堆糟糕的文件转换为 `UTF-8` 编码后编译：
 
 - *（使用 `UTF8_linux_lab_rab` 包的话省略这一步）要将源文件从 KOI-8 重新编码为 UNICOD (UTF8)，请执行 shell 脚本 `ChangeCodTable`。*
-- 执行 shell 脚本 `GenSysProg`（生成编程系统）部分，该部分涉及从源代码 C 文件 `Komppl.c` 生成可执行文件 `Komppl.exe`。
-- 执行 `StartTestTask` shell 脚本中有关从 TLD（即 `Komppl.exe` 文件）运行编译器的部分，以编译演示示例（即 `examppl.pli` 文件）。
+
+
+
+# 实验工具包文件说明
+
+## 初步说明
+
+> 1. Данный комплект, состоящий из трех элементов учебной системы программирования и тестового задания:
+>      - компилятор    PL/1 --> Ассемблер   ( komppl.c ),
+>      - компилятор    Ассемблер --> объектный образ  ( kompassr.c ),
+>      - абсолютный загрузчик, эмулятор и отладчик ( absloadm.c ),
+>      - тестовое задание ( examppl.pli и spismod ).
+>
+> 2. Для получения исполняемых модулей двух компиляторов и абсолютного загрузчика следует выполнить Bash-скрипт GenSysProgr.
+>
+> 3. После получения исполняемого кода компиляторов можно запускать на выполнение тестовый пример с помощью Bash-скрипта StartTestTask.
+
+| 文件                       | 说明                       | 功能                                  |
+| -------------------------- | -------------------------- | ------------------------------------- |
+| `komppl.c`                 | PL/1 编译器                | PL/1 --> 汇编（IBM System/370指令集） |
+| `kompassr.c`               | 汇编编译器                 | 汇编 --> 对象                         |
+| `absloadm.c`               | 绝对装载器、模拟器和调试器 |                                       |
+| `examppl.pli` 和 `spismod` | 测试任务/代码              |                                       |
+
+- 执行 Bash 脚本 `GenSysProgr`，获取**两个编译器**和**绝对加载器**的可执行文件（生成编程系统），该部分涉及从源代码 C 文件 `Komppl.c` 生成可执行文件 `Komppl.exe`。
+- 获取编译器的可执行代码后，即可使用 `StartTestTask` Bash 脚本运行测试用例。`StartTestTask` 中有关从 TLD（即 `Komppl.exe` 文件）运行编译器的部分，以编译演示示例（即 `examppl.pli` 文件）。
+
+
+
 - 验证编译器是否成功编译了演示示例 `examppl.ass` 的等效汇编文件，以及该汇编文件是否包含以下汇编文本：
 
 | Метка | КОП   | Операнды | Пояснения                    |
@@ -115,7 +129,7 @@ apt-get update && apt-get install -y mc libncurses5-dev make gcc vim
 | RVIX  | EQU   | 14       | RVIX назначим 14             |
 |       | END   |          | Конец текста блока           |
 
-# linux_lab_rab 中的糟心玩意
+
 
 ## absloadm.c
 

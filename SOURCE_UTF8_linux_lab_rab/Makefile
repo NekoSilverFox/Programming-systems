@@ -12,6 +12,12 @@ kompassr.exe: kompassr.c
 	@echo "____________________________________________________________"
 absloadm.exe: absloadm.c
 	@echo "________a b s l o a d m . e x e    g e n e r a t i o n______"
-	gcc -o absloadm.exe absloadm.c -lncurses
+        # 修改为自己的 -lncursesw 环境（以支持 UTF-8）
+	gcc -o absloadm.exe absloadm.c -I/opt/homebrew/opt/ncurses/include -L/opt/homebrew/opt/ncurses/lib -lncursesw
 	@echo "____________________________________________________________"
 
+clean:
+	rm -f *.exe
+	rm -f *.o 
+	rm -f *.ass
+	rm -f *.tex

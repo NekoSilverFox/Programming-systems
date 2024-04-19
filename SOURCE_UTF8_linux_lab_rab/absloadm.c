@@ -4,8 +4,13 @@
 #include <stdio.h>                                /*подкл.библ.ф-й ст.в/выв */
 #include <string.h>                               /*подкл.библ.ф-й стр.симв.*/
 #include <stdlib.h>                               /*подкл.библ.ф-й преобр.д.*/
-#include <ctype.h>                                /*подкл.библ.ф-й преобр.с.*/
-#include <curses.h>
+// #include <ctype.h>                                /*подкл.библ.ф-й преобр.с.*/
+// #include <curses.h>
+
+#include <wctype.h>
+#include <locale.h>
+#include <ncursesw/ncurses.h>
+
 
 #define  NSPIS  5                                 /*разм.списка загр.прогр. */
 #define  NOBJ   50                                /*разм.масс.об'ектных карт*/
@@ -316,7 +321,7 @@ int FRX(void)
 } 
 
 //...........................................................................   
-//---------------------------------------------------------------------------
+// 【已修复】输出中的红色部分 ---------------------------------------------------
 int wind(void)
 {
   int j1, k, temp;
@@ -332,27 +337,31 @@ int wind(void)
     wprintw(wred, "%.06lX: ", I1);	
     for (j = 0; j < 4; j++)
     {
-      for (k = 0; k < 4; k++)
-	wprintw(wred, "%.02X", OBLZ[BAS_IND + kk + j * 4 + k]);
+      for (k = 0; k < 4; k++) 
+        wprintw(wred, "%.02X", OBLZ[BAS_IND + kk + j * 4 + k]);
       waddstr(wred, " ");
     }
 
-    waddstr(wred, "/* ");
+    waddstr(wred, "| ");
     for (j = 0; j < 16; j++)
     {
-      if (isprint (OBLZ[BAS_IND + kk]) )  
+      unsigned char tmp_c = OBLZ[BAS_IND + kk];
+      // 不知道为什么会出错，手动增加 tmp_c < 128 的判断（如果移除，UTF8 的环境下会输出一个ASCII 为 240 的非法空字符）
+      if (iswprint(tmp_c) && (tmp_c < 128))
       {
-	waddch(wred, OBLZ[BAS_IND + kk++]);
-	wrefresh(wred);
+      	waddch(wred, tmp_c);
+        // printf("The ASCII value of `%c` is `%d`\n", OBLZ[BAS_IND + kk], OBLZ[BAS_IND + kk]);
       }	
       else 
       {
         waddstr(wred, ".");
-	kk++;
       }
+
+      wrefresh(wred);
+      kk++;
     }
 
-    waddstr(wred, " */");
+    waddstr(wred, " |\n");
     I1 += 16;
   }
   wrefresh(wred);			//вывод на экран
@@ -587,6 +596,10 @@ int main( int argc, char **argv )                /* п р о г р а м м а  
 						  /*абсолютного загрузчика  */
 						  /*об'ектных файлов        */
 {
+  // 设置 UTF-8 环境
+  setlocale(LC_ALL, "en_US.UTF-8");
+
+
   int  I,K,N,J0,res;                              /*рабочие                 */
   unsigned long J;                                /*переменные              */
   FILE *fp;                                       /*программы               */
