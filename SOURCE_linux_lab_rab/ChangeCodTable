@@ -1,0 +1,16 @@
+#! /bin/bash
+
+iconv -f KOI8-R -t utf-8 ./R_e_a_d_m_y  -o ./R_e_a_d_m_y.temp
+iconv -f KOI8-R -t utf-8 ./komppl.c     -o ./komppl.c.temp
+iconv -f KOI8-R -t utf-8 ./kompassr.c   -o ./kompassr.c.temp
+iconv -f KOI8-R -t utf-8 ./absloadm.c   -o ./absloadm.c.temp
+
+rm -f ./R_e_a_d_m_y
+rm -f ./komppl.c
+rm -f ./kompassr.c
+rm -f ./absloadm.c
+
+mv ./R_e_a_d_m_y.temp  ./R_e_a_d_m_y
+mv ./komppl.c.temp     ./komppl.c
+mv ./kompassr.c.temp   ./kompassr.c
+mv ./absloadm.c.temp   ./absloadm.c
