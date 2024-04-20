@@ -1664,16 +1664,14 @@ int OPR2 ()
   ZKARD ();                                       /* запоминаем карту Ассем-*/
 						  /* блера                  */
 
-  memcpy ( ASS_CARD._BUFCARD.OPERAC, "BALR", 4 ); /* формируем BALR-операцию*/
-  memcpy ( ASS_CARD._BUFCARD.OPERAND,             /* Ассемблера             */
-				  "RBASE,0", 7 );
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "BALR"); /* формируем BALR-операцию*/
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "RBASE,0"); /* Ассемблера             */
   write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Загрузить регистр базы");
 
   ZKARD ();                                       /* и запоминаем ее        */
 
-  memcpy ( ASS_CARD._BUFCARD.OPERAC, "USING", 5 );/* формируем USING-псевдо-*/
-  memcpy ( ASS_CARD._BUFCARD.OPERAND,             /* операцию Ассемблера    */
-				   "*,RBASE", 7 );
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "USING"); /* формируем USING-псевдо-*/
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "*,RBASE");/* операцию Ассемблера    */
   write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Назначить регистр базой");
 
   ZKARD ();                                       /* и запоминаем ее        */
