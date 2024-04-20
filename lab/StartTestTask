@@ -1,10 +1,9 @@
 #! /bin/bash
-echo
-echo
-echo
-echo "______________S T A R T   J O B_____________________"
-echo
-echo
+make clean
+clear
+make
+clear
+echo "__________________S T A R T   J O B_____________________"
 echo ' PL/1  ----->  Asswmbler    c o m p i l i n g'
 echo "continue?(y/n)"
 read OTV
@@ -44,7 +43,5 @@ else
  echo
  exit
 fi
-echo
-echo
 echo
 echo "______________F I N I S H     J O B__________________"
