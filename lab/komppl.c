@@ -36,6 +36,7 @@
 #define MVC_OPERAND       "@BUF+6(2),A"
 #define DC_DEC_OPERAND    "PL2"  // A CD	XXX'10'
 #define DS_BIT_OPERAND    "BL2"  // B	DS	XXX
+#define DC_BUF_OPERAND    "PL8'0'"  // @BUF     DC    XXXXX
 
 bool is_cvb = false;
 
@@ -1646,7 +1647,7 @@ int OEN2()
 
     write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@BUF");
     write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DC");
-    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "PL8\'0\'");
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, DC_BUF_OPERAND);
     write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Определение @BUF и выделение 8 Byte памяти с начальным значением 0");
     ZKARD();
   }
@@ -1759,7 +1760,7 @@ int OPA2()
         debugInfo("[INFO] Semantic computing (operator): STH @RRAB, B");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "STH");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB, B");
-        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Сохранине двоичные данные (полслова) в регистре @RRAB в  B");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Сохранине двоичные данные (полслова) в регистре @RRAB в B");
         ZKARD();
 
         is_cvb = true;
