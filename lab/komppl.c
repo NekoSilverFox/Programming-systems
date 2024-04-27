@@ -33,10 +33,12 @@
 /* ===================================== 自定义常量 ===================================== */
 #define ENABLE_DEBUG      1
 #define LEN_ROW           180  /* 输出的汇编，每行长度 */
-#define MVC_OPERAND       "@BUF+6(2),A"
-#define DC_DEC_OPERAND    "PL2"  // A CD	XXX'10'
-#define DS_BIT_OPERAND    "BL2"  // B	DS	XXX
+#define MVC_OPERAND       "@BUF+5(3),A"
+#define DC_DEC_OPERAND    "PL3"  // A CD	XXX'10'
+#define DS_BIT_OPERAND    "BL16"  // B	DS	XXX
 #define DC_BUF_OPERAND    "PL8'0'"  // @BUF     DC    XXXXX
+#define DC_ONE_OPERAND  "BL32'1'"  // @ONE DC XXXX
+#define DC_ZERO_OPERAND  "F'0'"  // @ZERO DC XXXX
 
 bool is_cvb = false;
 
@@ -1609,12 +1611,17 @@ int OEN2()
       //  DCL <IDE> BIT(<RZR>)
       else if (SYM[i].TYPE == 'b')
       {
-        debugInfo("[INFO] Semantic computing: DCL <IDE> BIT(<RZR>) --> DS XX");
+        debugInfo("[INFO] Semantic computing: DCL <IDE> BIT(<RZR>) --> B DS XX");
 
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, SYM[i].NAME);
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DS");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, DS_BIT_OPERAND);
-        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Объявление B двоичным хранилищем длиной 2 Byte");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Объявление B двоичным хранилищем длиной 16 Bit");
+        ZKARD();
+
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DS");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "0F");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Выравнивание памяти для CVB");
         ZKARD();
       }
       // DEC FIXED INIT(<DCF>)
@@ -1629,7 +1636,12 @@ int OEN2()
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, SYM[i].NAME);
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DC");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, t_operand);
-        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Объявление A как упакованного десятичного числа длиной 2 Byte с десятичным значением 10");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Определение A длиной 3 Byte с десятичным значением 10");
+        ZKARD();
+
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DS");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "0H");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Выравнивание памяти для CVB");
         ZKARD();
       }
       /* ######################################################################## */
@@ -1640,9 +1652,22 @@ int OEN2()
   /* ######################################################################## */
   if (is_cvb)
   { // Li: if the CVB command is used
+
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@ONE");
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DC");
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, DC_ONE_OPERAND);
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Определение константы 1 для AND");
+    ZKARD();
+
     write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DS");
     write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "0F");
-    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Выделение и выравнивание регистровой памяти для инструкций CVB 4 Byte");
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Выравнивание памяти для CVB");
+    ZKARD();
+
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@ZERO");
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "DC");
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, DC_ZERO_OPERAND);
+    write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Определение константы 0 для сравнения");
     ZKARD();
 
     write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@BUF");
@@ -1653,22 +1678,25 @@ int OEN2()
   }
   /* ######################################################################## */
 
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@RBASE"); /* формирование EQU-псев- */
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "EQU");   /* дооперации определения */
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "15");   /* номера базового регист-*/
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "@RBASE назначим 15");
-                                                               /* ра общего назначения   */
-                                                               /*           и            */
-  ZKARD();                                                     /* запоминание ее         */
-    
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@RRAB"); /* формирование EQU-псев- */
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "EQU");  /* дооперации определения */
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "5");   /* номера базового регист-*/
-  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "@RRAB назначим 5");
-                                                               /* ра общего назначения   */
-                                                               /*            и           */
-  ZKARD();                                                     /* запоминание ее         */
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@RRAB");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "EQU");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "3");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "@RRAB назначим 3");
+  ZKARD();
+
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@RRAB1");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "EQU");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "4");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "@RRAB назначим 4");
+  ZKARD();
+
   
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@RBASE");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "EQU");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "15");
+  write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "@RBASE назначим 15");
+  ZKARD();
+
   /* ######################################################################## */
 
   memcpy(ASS_CARD._BUFCARD.OPERAC, "END", 3); /* формирование кода ас-  */
@@ -1676,11 +1704,12 @@ int OEN2()
                                               /* операции END,          */
   i = 0;
 
-  while (FORMT[1][i] != '\x0') /* ее операнда            */
-  {
-    ASS_CARD._BUFCARD.OPERAND[i] = FORMT[1][i]; /*         и              */
-    i++;
-  }
+  // END `EX10` <-- 增加
+  // while (FORMT[1][i] != '\x0') /* ее операнда            */
+  // {
+  //   ASS_CARD._BUFCARD.OPERAND[i] = FORMT[1][i]; /*         и              */
+  //   i++;
+  // }
 
   write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Конец программы"); /* построчного коментария */
   ZKARD();                                                             /* запоминание псевдоопе- */
@@ -1751,16 +1780,60 @@ int OPA2()
       /* ######################################################################## */
       else if (SYM[i].TYPE == 'b')
       {
-        debugInfo("[INFO] Semantic computing (operator): CVB @RRAB, @BUF");
+        debugInfo("[INFO] Semantic computing (operator):        CVB @RRAB,@BUF");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "CVB");
-        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB, @BUF");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB,@BUF");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Преобразование содержимое @BUF в двоичный формат и сохраните в @RRAB");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator): @LOOP  LR  @RRAB1,@RRAB");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@LOOP");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "LR");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB1,@RRAB");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Загрузка значения @RRAB в @RRAB1 и установка метки выполнения цикла");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator):        N   @RRAB1,@ONE");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "N");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB1,@ONE");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Содержимое регистра @RRAB1 AND 1");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator):        C   @RRAB1,@ZERO");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "C");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB1,@ZERO");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Сравнение значения в регистре @RRAB1 с 0");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator):        BC  6,@BREAK");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "BC");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "6,@BREAK");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Если НЕ равно 0, то перейти к @BREAK (mask-bits: 0110)");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator):        SLL @RRAB,1");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "SLL");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB,1");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Cмещаем @RRAB влево на 1 Bit");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator):        BC  15,@LOOP");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "BC");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "15,@LOOP");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Безусловный переход к @LOOP");
+        ZKARD();
+
+        debugInfo("[INFO] Semantic computing (operator): @BREAK SRL @RRAB,16");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.METKA, "@BREAK");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "SRL");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB,16");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Метка выхода из цикла, cмещаем @RRAB на 16 Bit вправо");
         ZKARD();
 
         debugInfo("[INFO] Semantic computing (operator): STH @RRAB, B");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAC, "STH");
         write_str_to_ass_bufcard(ASS_CARD._BUFCARD.OPERAND, "@RRAB, B");
-        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Сохранине двоичные данные (полслова) в регистре @RRAB в B");
+        write_str_to_ass_bufcard(ASS_CARD._BUFCARD.COMM, "Сохранине двоичные данные (полслова) в регистре @RRAB из B");
         ZKARD();
 
         is_cvb = true;
