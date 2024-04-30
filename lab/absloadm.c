@@ -18,15 +18,15 @@
 #define  NOP 6                                    /*кол-во обрабатываемых   */
 						  /* команд                 */
 
-#define LEN_ROW   180
+#define LEN_ROW_TEX   80   // 输入 .tex 文件一行的长度（字符数）
 
 char NFIL [30] = "\x0";
 
 int  IOBJC   = 0;                                 /*инд.вакантн.стр. OBJCARD*/
-char OBJCARD [NOBJ][LEN_ROW];                          /*масс.хранен.об'ектн.карт*/
+char OBJCARD [NOBJ][LEN_ROW_TEX];                          /*масс.хранен.об'ектн.карт*/
 
 int  ISPIS   = 0;                                 /*инд.вакантн.стр. SPISOK */
-char SPISOK  [NSPIS][LEN_ROW];                         /*масс.хранен.списка прогр*/
+char SPISOK  [NSPIS][LEN_ROW_TEX];                         /*масс.хранен.списка прогр*/
 
 WINDOW *wblue, *wgreen, *wred, *wcyan, *wmargenta;
 
@@ -48,7 +48,7 @@ struct STR_BUF_TXT                                /*структ.буфера к
 union                                             /*определить об'единение  */
  {
   struct STR_BUF_TXT STR_TXT;                     /*структура буфера        */
-  unsigned char BUF_TXT [LEN_ROW];                     /*буфер карты TXT         */
+  unsigned char BUF_TXT [LEN_ROW_TEX];                     /*буфер карты TXT         */
  } TXT;
 
 
@@ -380,19 +380,19 @@ int sys(void)
   int gr_pos_x, gr_pos_y;
   int ii = 0, jj = 0;
   int gr_y;
-  char wstr[LEN_ROW];
+  char wstr[LEN_ROW_TEX];
   int zizi = 0, tempI;
   
   
   I = BAS_ADDR;			//установить текущий адрес
   				//равный начальному
 //нижнее поле     
-  wmargenta = newwin(1, LEN_ROW, 24, 0);
+  wmargenta = newwin(1, LEN_ROW_TEX, 24, 0);
   wbkgd(wmargenta, COLOR_PAIR(COLOR_MAGENTA));
   waddstr(wmargenta, "\"PgUp\",\"PgDn\",\"Up\",\"Down\"->просмотр дампа; \"Enter\"->выполнить очередную команду");
       
 //строка состояния
-  wcyan = newwin(1, LEN_ROW, 23, 0);
+  wcyan = newwin(1, LEN_ROW_TEX, 23, 0);
   wbkgd(wcyan, COLOR_PAIR(COLOR_CYAN));
   
 //дамп области загрузки
@@ -630,7 +630,7 @@ int main( int argc, char **argv )                /* п р о г р а м м а  
   {
     while ( !feof( fp ) )                         /*читать все карты файла  */
      {                                            /*со списком              */
-      fgets ( SPISOK [ISPIS++] , LEN_ROW , fp );       /*в массив SPISOK         */
+      fgets ( SPISOK [ISPIS++] , LEN_ROW_TEX , fp );       /*в массив SPISOK         */
       if ( ISPIS == NSPIS )                       /*если этот массив пере-  */
        {                                          /*полнен, то:             */
 	fclose ( fp );                            /*закрыть файл со списком */
@@ -657,7 +657,7 @@ CONT1:
      {                                          /*                        */
       while ( !feof( fp) )                        /*  читать файл до конца, */
        {                                          /*  размеcтить записи в   */   
-	fread ( OBJCARD [IOBJC++] , LEN_ROW , 1 , fp );/*  массиве OBJCARD и,если*/
+	fread ( OBJCARD [IOBJC++] , LEN_ROW_TEX , 1 , fp );/*  массиве OBJCARD и,если*/
 	if ( IOBJC == NOBJ )                      /*  считаны не все записи,*/
 	 {                                        /*  то:                   */
 	  fclose ( fp );                          /*   выдать сообщ.об ошиб.*/
@@ -692,7 +692,7 @@ CONT2:
    {                                              /*карты об'ектных файлов, */
     if ( !memcmp ( &OBJCARD [I][1] , "TXT" , 3 ) )/*отобрать принадл.к типу */
      {                                            /*TXT и расчитать:        */
-      memcpy ( TXT.BUF_TXT , OBJCARD [I] , LEN_ROW );  /*                        */
+      memcpy ( TXT.BUF_TXT , OBJCARD [I] , LEN_ROW_TEX );  /*                        */
       J = TXT.STR_TXT.ADOP [0];                   /* в переменной J начальн.*/
       J = (J << 8) + TXT.STR_TXT.ADOP [1];        /*  индекс загрузки в мас-*/
       J = (J << 8) + TXT.STR_TXT.ADOP [2];        /*  сиве OBLZ             */
