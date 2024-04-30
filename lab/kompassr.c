@@ -11,7 +11,8 @@
 /*
 ******* Б Л О К  об'явлений статических рабочих переменных
 */
-#define LEN_ROW           180
+#define LEN_ROW_ASS       180  // 输入 .ass 文件一行的长度（字符数）
+#define LEN_ROW_TEX       80   // 输出 .tex 文件一行的长度（字符数）
 #define BYTE_SIZE         8
 #define ENABLE_DEBUG      1
 unsigned char BUF_VAR_VALUE[8];
@@ -113,7 +114,7 @@ struct ASSKARTA /*структ.карты АССЕМБЛЕРА */
   unsigned char PROBEL2[1];  /*пробел-разделитель      */
   unsigned char OPERAND[12]; /*поле операнда           */
   unsigned char PROBEL3[1];  /*пробел разделитель      */
-  unsigned char COMM[LEN_ROW - 3 - 8 - 5 - 12];    /*поле комментария        */
+  unsigned char COMM[LEN_ROW_ASS - 3 - 8 - 5 - 12];    /*поле комментария        */
 };
 
 /*
@@ -122,7 +123,7 @@ struct ASSKARTA /*структ.карты АССЕМБЛЕРА */
 
 union /*определить об'единение  */
 {
-  unsigned char BUFCARD[LEN_ROW]; /*буфер карты.исх.текста  */
+  unsigned char BUFCARD[LEN_ROW_ASS]; /*буфер карты.исх.текста  */
   struct ASSKARTA STRUCT_BUFCARD; /*наложение шабл.на буфер */
 } TEK_ISX_KARTA;
 
@@ -229,7 +230,7 @@ struct TBASR /*структ.стр.табл.баз.рег.*/
 ***** Б Л О К   об'явления массива с об'ектным текстом
 */
 
-unsigned char OBJTEXT[DL_OBJTEXT][LEN_ROW]; /*массив об'ектных карт   */
+unsigned char OBJTEXT[DL_OBJTEXT][LEN_ROW_TEX]; /*массив обектных карт   */
 int ITCARD = 0;                             /*указатель текущ.карты   */
 
 struct OPRR /*структ.буф.опер.форм.RR */
@@ -332,6 +333,7 @@ struct STR_BUF_TXT /*структ.буфера карты TXT */
   unsigned char POLE9[8];  /*идентификационное поле  */
 };
 
+// LEN_ROW_TEX - 80
 struct STR_BUF_END /*структ.буфера карты END */
 {
   unsigned char POLE1;     /*место для кода 0x02     */
@@ -343,19 +345,19 @@ struct STR_BUF_END /*структ.буфера карты END */
 union /*определить об'единение  */
 {
   struct STR_BUF_ESD STR_ESD;     /*структура буфера        */
-  unsigned char BUF_ESD[LEN_ROW]; /*буфер карты ESD         */
+  unsigned char BUF_ESD[LEN_ROW_TEX]; /*буфер карты ESD         */
 } ESD;
 
 union /*определить об'единение  */
 {
   struct STR_BUF_TXT STR_TXT;     /*структура буфера        */
-  unsigned char BUF_TXT[LEN_ROW]; /*буфер карты TXT         */
+  unsigned char BUF_TXT[LEN_ROW_TEX]; /*буфер карты TXT         */
 } TXT;
 
 union /*определить об'единение  */
 {
   struct STR_BUF_END STR_END;     /*структура буфера        */
-  unsigned char BUF_END[LEN_ROW]; /*буфер карты ESD         */
+  unsigned char BUF_END[LEN_ROW_TEX]; /*буфер карты ESD         */
 } END;
 
 /*
@@ -631,7 +633,7 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   // }
   memcpy(TXT.STR_TXT.POLE9, ESD.STR_ESD.POLE11, 8); /*формиров.идентифик.поля */
 
-  memcpy(OBJTEXT[ITCARD], TXT.BUF_TXT, LEN_ROW); /*запись об'ектной карты  */
+  memcpy(OBJTEXT[ITCARD], TXT.BUF_TXT, LEN_ROW_TEX); /*запись об'ектной карты  */
   ITCARD += 1;                                   /*коррекц.инд-са своб.к-ты*/
   CHADR = CHADR + ARG;                           /*коррекц.счетчика адреса */
   return;
@@ -743,7 +745,7 @@ int SEND() /*подпр.обр.пс.опер.END   */
   memcpy(                    /*запись об'ектной карты  */
          OBJTEXT[ITCARD],    /* в                      */
          END.BUF_END,        /* массив                 */
-         LEN_ROW             /* об'ектных              */
+         LEN_ROW_TEX             /* об'ектных              */
   );                         /* карт                   */
   ITCARD += 1;               /*коррекц.инд-са своб.к-ты*/
   return (100);              /*выход с призн.конца 2-го*/
@@ -801,7 +803,7 @@ int SSTART() /*подпр.обр.пс.опер.START */
       memcpy(                            /*запись об'ектной карты  */
              OBJTEXT[ITCARD],            /* в                      */
              ESD.BUF_ESD,                /* массив                 */
-             LEN_ROW                     /* об'ектных              */
+             LEN_ROW_TEX                     /* об'ектных              */
       );                                 /* карт                   */
       ITCARD += 1;                       /*коррекц.инд-са своб.к-ты*/
       return (0);                        /*успешное заверш.подпрогр*/
@@ -1065,7 +1067,7 @@ int SOBJFILE()                                   /*подпрогр.формир
   if ((fp = fopen(NFIL, "wb")) == NULL)          /*при неудачн.открыт.ф-ла */
     return (-7);                                 /* сообщение об ошибке    */
   else                                           /*иначе:                  */
-    RAB2 = fwrite(OBJTEXT, LEN_ROW, ITCARD, fp); /* формируем тело об.файла*/
+    RAB2 = fwrite(OBJTEXT, LEN_ROW_TEX, ITCARD, fp); /* формируем тело об.файла*/
   fclose(fp);                                    /*закрываем об'ектный файл*/
   return (RAB2);                                 /*завершаем  подпрограмму */
 }
@@ -1331,7 +1333,7 @@ void main(int argc, char **argv) /*главная программа       */
 {
   FILE *fp;
   char *ptr = argv[1];
-  unsigned char ASSTEXT[DL_ASSTEXT][LEN_ROW];
+  unsigned char ASSTEXT[DL_ASSTEXT][LEN_ROW_ASS];
 
   /*
   ******* Б Л О К  об'явлений рабочих переменных
@@ -1379,7 +1381,7 @@ void main(int argc, char **argv) /*главная программа       */
       for (I1 = 0; I1 <= DL_ASSTEXT; I1++)
 
       {
-        if (!fread(ASSTEXT[I1], LEN_ROW, 1, fp))
+        if (!fread(ASSTEXT[I1], LEN_ROW_ASS, 1, fp))
         {
           if (feof(fp))
             goto main1;
@@ -1410,7 +1412,7 @@ main1:
   for (I1 = 0; I1 < DL_ASSTEXT; I1++)              /*для карт с 1 по конечную*/
   {                                                /*                        */
     memcpy(TEK_ISX_KARTA.BUFCARD, ASSTEXT[I1],     /*ч-ть очередн.карту в буф*/
-           LEN_ROW);                               /*                        */
+           LEN_ROW_ASS);                               /*                        */
 
     printf(("------------------------------------\n"));
     printf(("[INFO] Reading TEK_ISX_KARTA.BUFCARD:\n"));
@@ -1513,7 +1515,7 @@ CONT3:
   for (I1 = 0; I1 < DL_ASSTEXT; I1++)          /*для карт с 1 по конечную*/
   {                                            /*                        */
     memcpy(TEK_ISX_KARTA.BUFCARD, ASSTEXT[I1], /*ч-ть очередн.карту в буф*/
-           LEN_ROW);                           /*                        */
+           LEN_ROW_ASS);                           /*                        */
                                                /*
                                                ***** Б Л О К  поиска текущей операции среди псевдоопераций
                                                */
