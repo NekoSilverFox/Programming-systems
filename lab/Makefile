@@ -21,3 +21,4 @@ clean:
 	rm -f *.o 
 	rm -f *.ass
 	rm -f *.tex
+	rm -f *.mod

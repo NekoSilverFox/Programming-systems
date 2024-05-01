@@ -1,0 +1,53 @@
+#! /bin/bash
+echo ">>> Cmake cleaning"
+make clean
+clear
+echo ">>> Cmaking"
+make
+clear
+echo "__________________S T A R T   J O B_____________________"
+echo ' PL/1  ----->  Asswmbler    c o m p i l i n g'
+echo ">>> continue?(y/n)"
+read OTV
+if [ "$OTV" = "y" ] 
+then
+ echo "========================== Making .ass =========================="
+ ./komppl.exe  examppl.pli
+ echo
+ echo "===================== Contents of file .ass ====================="
+ cat examppl.ass
+ echo "================================================================="
+else
+ echo
+ exit
+fi
+echo
+echo
+echo
+echo ' Assembler  ----->  Object image   c o m p i l i n g'
+echo ">>> continue?(y/n)"
+read OTV
+if [ "$OTV" = "y" ] 
+then
+ echo
+ ./kompassr.exe examppl.ass
+else
+ echo
+ exit
+fi
+echo
+echo
+echo
+echo ' Load, run and debug Object image  '
+echo ">>> continue?(y/n)"
+read OTV
+if [ "$OTV" = "y" ] 
+then
+ echo
+ ./absloadm.exe spis.mod
+else
+ echo
+ exit
+fi
+echo
+echo "______________F I N I S H     J O B__________________"

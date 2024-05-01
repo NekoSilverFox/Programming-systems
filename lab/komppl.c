@@ -37,8 +37,8 @@
 #define DC_DEC_OPERAND    "PL3"  // A CD	XXX'10'
 #define DS_BIT_OPERAND    "BL16"  // B	DS	XXX
 #define DC_BUF_OPERAND    "PL8'0'"  // @BUF     DC    XXXXX
-#define DC_ONE_OPERAND  "BL32'1'"  // @ONE DC XXXX
-#define DC_ZERO_OPERAND  "F'0'"  // @ZERO DC XXXX
+#define DC_ONE_OPERAND    "BL32'1'"  // @ONE DC XXXX
+#define DC_ZERO_OPERAND   "F'0'"  // @ZERO DC XXXX
 
 bool is_cvb = false;
 
@@ -1659,15 +1659,15 @@ int OEN2()
     write2ass(ASS_CARD._BUFCARD.COMM, "Определение константы 1 для AND");
     ZKARD();
 
-    write2ass(ASS_CARD._BUFCARD.OPERAC, "DS");
-    write2ass(ASS_CARD._BUFCARD.OPERAND, "0F");
-    write2ass(ASS_CARD._BUFCARD.COMM, "Выравнивание памяти");
-    ZKARD();
-
     write2ass(ASS_CARD._BUFCARD.METKA, "@ZERO");
     write2ass(ASS_CARD._BUFCARD.OPERAC, "DC");
     write2ass(ASS_CARD._BUFCARD.OPERAND, DC_ZERO_OPERAND);
     write2ass(ASS_CARD._BUFCARD.COMM, "Определение константы 0 для сравнения");
+    ZKARD();
+
+    write2ass(ASS_CARD._BUFCARD.OPERAC, "DS");
+    write2ass(ASS_CARD._BUFCARD.OPERAND, "0F");
+    write2ass(ASS_CARD._BUFCARD.COMM, "Выравнивание памяти на границу слова");
     ZKARD();
 
     write2ass(ASS_CARD._BUFCARD.METKA, "@BUF");

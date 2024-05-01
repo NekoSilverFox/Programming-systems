@@ -15,8 +15,8 @@
 #define LEN_ROW_TEX       80   // 输出 .tex 文件一行的长度（字符数）
 #define BYTE_SIZE         8
 #define ENABLE_DEBUG      1
-unsigned char BUF_VAR_VALUE[8];
-int lenght;
+unsigned char BUF_VAR[8];
+int arg;
 
 char NFIL[30] = "\x0";
 
@@ -371,6 +371,7 @@ int FDC() /*подпр.обр.пс.опер.DC    */
   {
     if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'F')
     {
+      printf("[INFO] --> FDC() catch 'F' : %s", TEK_ISX_KARTA.STRUCT_BUFCARD);
       T_SYM[ITSYM].DLSYM = 4;   /*  уст.длину симв. =  4, */
       T_SYM[ITSYM].PRPER = 'R'; /*  а,призн.перемест.='R' */
 
@@ -620,7 +621,7 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   }
   else
   { // Если переменная.
-    memcpy(TXT.STR_TXT.OPER, BUF_VAR_VALUE, sizeof(BUF_VAR_VALUE));  // ????
+    memcpy(TXT.STR_TXT.OPER, BUF_VAR, sizeof(BUF_VAR));  // ????
     TXT.STR_TXT.DLNOP[1] = ARG;
   }
 
@@ -651,40 +652,46 @@ int SDC() /*подпр.обр.пс.опер.DC    */
       )                                             /* то                     */
   {
     RAB = strtok((char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND + 2, "'");
+    printf("[INFO] In SDC() get RAB = [%s]\n", RAB);
     /*в перем. c указат.RAB   */
     /*выбираем первую лексему */
     /*операнда текущей карты  */
     /*исх.текста АССЕМБЛЕРА   */
 
     RX.OP_RX.B2D2 = atoi(RAB);    /*перевод ASCII-> int     */
+    printf("[INFO] In SDC() get RX.OP_RX.B2D2 = [%f]\n", RX.OP_RX.B2D2);
     RAB = (char *)&RX.OP_RX.B2D2; /*приведение к соглашениям*/
     swab(RAB, RAB, 2);            /* ЕС ЭВМ                 */
+    printf("[INFO] In SDC() get swab RAB = [%s]\n", RAB);
+
+    STXT(4, 0);
   }
   /* ######################################################################## */
 
   else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "PL", 2) == 0 ||
            memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "BL", 2) == 0)
   {
-    char *operand = (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND;
+    char* operand = (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND;
     RAB = strtok(operand + 4, "'"); // Значение
-    char *txt_oper;
-    txt_oper = calloc(lenght, sizeof(char));
+    char* oper = calloc(arg, sizeof(char));
     if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "BL", 2) == 0)
     {
       debugInfo("[INFO] Catch BL");
-      lenght = atoi(strtok(operand + 2, "'")) / BYTE_SIZE; // Длина
+      arg = atoi(strtok(operand + 2, "'")) / BYTE_SIZE; // Длина
       // Смещение бита в начало.
-      txt_oper[0] = atoi(RAB) << 7;
+      oper[0] = atoi(RAB) << 7;
     }
     else
     {
       debugInfo("[INFO] Catch PL");
-      lenght = atoi(strtok(operand + 2, "'"));
+      arg = atoi(strtok(operand + 2, "'"));
       // Для константы типа PL. Смещаем значение на 4 и прибавляем C
-      txt_oper[lenght - 1] = 0xC + (atoi(RAB) << 4);
+      oper[arg - 1] = 0xC + (atoi(RAB) << 4);
     }
-    memcpy(BUF_VAR_VALUE, txt_oper, lenght);
-    free(txt_oper);
+    memcpy(BUF_VAR, oper, arg);
+    free(oper);
+
+    STXT(arg, 1);
   }
 
   /* ######################################################################## */
@@ -693,7 +700,6 @@ int SDC() /*подпр.обр.пс.опер.DC    */
     return (1); /*сообщение об ошибке     */
 
   // STXT(4); /*формирование TXT-карты  */
-  STXT(lenght, 1);
 
   return (0); /*успешн.завершение подпр.*/
 }
@@ -701,35 +707,41 @@ int SDC() /*подпр.обр.пс.опер.DC    */
 int SDS() /*подпр.обр.пс.опер.DS    */
 {
 
-  RX.OP_RX.OP = 0;                                   /*занулим два старших     */
-  RX.OP_RX.R1X2 = 0;                                 /*байта RX.OP_RX          */
-  if (                                               /* если операнд начинается*/
-      TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'F' /* с комбинации F'        */
-      )                                              /* то:                    */
-    RX.OP_RX.B2D2 = 0;                               /*занулим RX.OP_RX.B2D2   */
+  RX.OP_RX.OP = 0;                                   
+  RX.OP_RX.R1X2 = 0;     
+  /*занулим два старших     */
+  /*байта RX.OP_RX          */
+  /* если операнд начинается*/
+  /* с комбинации F'        */
+  /* то:                    */
+  /*занулим RX.OP_RX.B2D2   */
+  if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'F')
+  {
+    RX.OP_RX.B2D2 = 0;
+    STXT(4, 0);
+  }
 
   /* ######################################################################## */
   else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "BL", 2) == 0)
   {
     char *operand = (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND;
-    lenght = atoi(strtok(operand, "BL")) / BYTE_SIZE; // Длина/
-    char *txt_oper;
-    txt_oper = calloc(lenght, sizeof(char));
-    memcpy(BUF_VAR_VALUE, txt_oper, lenght);
-    free(txt_oper);
-    // STXT ( lenght, 1 );                             /*формирование TXT-карты  */
+    arg = atoi(strtok(operand, "BL")) / BYTE_SIZE; // Длина/
+    char *oper;
+    oper = calloc(arg, sizeof(char));
+    memcpy(BUF_VAR, oper, arg);
+    free(oper);
+    STXT ( arg, 1 );                             /*формирование TXT-карты  */
   }
   else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0F", 2) == 0)
-  { }
+  {STXT(4, 1);}  // ?
   else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0H", 2) == 0)
-  { }
+  {STXT(4, 1);}
   /* ######################################################################## */
 
   else                                               /*иначе                   */
     return (1);                                      /*сообщение об ошибке     */
 
   // STXT(4); /*формирование TXT-карты  */
-  STXT(lenght, 1);
 
   return (0); /*успешно завершить подпр.*/
 }
@@ -1286,16 +1298,8 @@ int SRS() /*подпр.обр.опер.RS-форм. */
   char *PTR;                                         /*                        */
   int B2D2;                                          /*                        */
   RS.OPRS.OP = T_MOP[I3].CODOP;                     /*формирование кода операц*/
-  METKA1 = strtok                                    /*в перем. c указат.METKA1*/
-      (                                              /*выбираем первую лексему */
-       (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, /*операнда текущей карты  */
-       ","                                           /*исх.текста АССЕМБЛЕРА   */
-      );
-  METKA2 = strtok /*в перем. c указат.METKA2*/
-      (           /*выбираем вторую лексему */
-       NULL,      /*операнда текущей карты  */
-       " "        /*исх.текста АССЕМБЛЕРА   */
-      );
+  METKA1 = strtok((char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, ",");
+  METKA2 = strtok(NULL, " ");
   if (isalpha((int)*METKA1) || *METKA1 == '@') /*если лексема начинается */
   {                                            /*с буквы, то:            */
     for (J = 0; J <= ITSYM; J++)               /* все метки исх.текста в */
@@ -1499,10 +1503,10 @@ CONT3:
   /* ######################################################################## */
   /* ################################ FINISH ################################ */
   /* ######################################################################## */
-  T_MOP[6].BXPROG = SSS;
-  T_MOP[7].BXPROG = SRX;
-  T_MOP[8].BXPROG = SRR;
-  T_MOP[9].BXPROG = SRX;
+  T_MOP[6].BXPROG  = SSS;
+  T_MOP[7].BXPROG  = SRX;
+  T_MOP[8].BXPROG  = SRR;
+  T_MOP[9].BXPROG  = SRX;
   T_MOP[10].BXPROG = SRX;
   T_MOP[11].BXPROG = SRX;
   T_MOP[12].BXPROG = SRS;
