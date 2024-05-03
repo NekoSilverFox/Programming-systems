@@ -32,6 +32,24 @@ void debugInfo(char* str)
   return;
 }
 
+void printHex(const char *str)
+{
+  printf("################# HEX #################\n");
+  int count = 0;
+  while (*str)
+  {
+    printf("%02X ", *str);
+    str++;
+    count++;
+    if (count == 16)
+    {
+      printf("\n");
+      count = 0;
+    }
+  }
+  printf("\n#######################################\n");
+}
+
 /*
 ***** Б Л О К  об'явлений прототипов обращений к подпрограммам 1-го просмотра
 */
@@ -303,7 +321,7 @@ union
 /* ######################################################################## */
 
 struct STR_BUF_ESD /*структ.буфера карты ESD */
-{
+{                           /* .TXT@..3@@..@@.. */
   unsigned char POLE1;      /*место для кода 0x02     */
   unsigned char POLE2[3];   /*поле типа об'ектн.карты */
   unsigned char POLE3[6];   /*пробелы                 */
@@ -596,7 +614,7 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   /* ######################################################################## */
   memset(TXT.STR_TXT.OPER, 64, 4);  // 64 - `@`
 
-  if (is_var == 0)
+  if (0 == is_var)
   {               // Если не переменная, тогда.
     if (ARG == 2) /*формирование поля OPER  */
     {
@@ -614,10 +632,45 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
       TXT.STR_TXT.DLNOP[1] = 6;
     }
   }
-  else if (is_var == 2)
+  else if (2 == is_var)
   {
     memcpy(TXT.STR_TXT.OPER, RS.BUF_OP_RS, 4);
     TXT.STR_TXT.DLNOP[1] = 4;
+  }
+  else if (3 == is_var) // DC 0F / DS 0F （动态分配）
+  {
+    printf("  ┗━ [STXT] get is_var = 3\n");
+        int mod = TXT.STR_TXT.ADOP[2] % 4; // 向 4 对齐的长度
+        if (mod == 3)  // XX XX XX @@ <-- `@` 是要对齐的地方
+        {
+          ARG = 1;
+          memcpy(TXT.STR_TXT.OPER, BUF_VAR, ARG);  // ????
+          TXT.STR_TXT.DLNOP[1] = ARG;
+        }
+        else if (mod == 2)  // XX XX @@ @@ <-- `@` 是要对齐的地方
+        {
+          ARG = 2;
+          memcpy(TXT.STR_TXT.OPER, BUF_VAR, ARG);  // ????
+          TXT.STR_TXT.DLNOP[1] = ARG;
+        }
+        else if (mod == 0)  // XX XX XX XX <-- 无需对齐
+        {
+          ARG = 0;
+
+          printf("\033[0m\033[1;33m!!! No memory alignment required !!!\n");
+          printf("\n[STXT]\tTEK_ISX_KARTA:\t\t\t%.28s\n", TEK_ISX_KARTA.BUFCARD);
+          printf("\tДлина\t\t\t\t%d Byte\n", ARG);
+          printf("\tTXT.STR_TXT.ADOP in HEX:\t%02X %02X %02X (address)\n",
+                 TXT.STR_TXT.ADOP[0], TXT.STR_TXT.ADOP[1], TXT.STR_TXT.ADOP[2]);
+          printf("\tTXT.STR_TXT.OPER in HEX:\t");
+          for (int i = 0; i < ARG; i++)
+          {
+            printf("%.2X ", TXT.STR_TXT.OPER[i]);
+          }
+          printf("\033[0m\n");
+          
+          return;
+        }
   }
   else
   { // Если переменная.
@@ -632,11 +685,29 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   //   memcpy(TXT.STR_TXT.OPER, RX.BUF_OP_RX, 4); /* для RX-формата         */
   //   TXT.STR_TXT.DLNOP[1] = 4;
   // }
+
+  // ESD.STR_ESD.POLE11 - EX10@@@@
   memcpy(TXT.STR_TXT.POLE9, ESD.STR_ESD.POLE11, 8); /*формиров.идентифик.поля */
+  // printf("[INFO-STXT] ESD.STR_ESD.POLE11 = [%s]\n", ESD.STR_ESD.POLE11);
 
   memcpy(OBJTEXT[ITCARD], TXT.BUF_TXT, LEN_ROW_TEX); /*запись об'ектной карты  */
+  // printHex(OBJTEXT[ITCARD]);
   ITCARD += 1;                                   /*коррекц.инд-са своб.к-ты*/
   CHADR = CHADR + ARG;                           /*коррекц.счетчика адреса */
+
+  // 打印信息
+  printf("\033[0m\033[1;32m");
+  printf("\n[STXT]\tTEK_ISX_KARTA:\t\t\t%.28s\n", TEK_ISX_KARTA.BUFCARD);
+  printf("\tДлина\t\t\t\t%d Byte\n", ARG);
+  printf("\tTXT.STR_TXT.ADOP in HEX:\t%02X %02X %02X (address)\n",
+         TXT.STR_TXT.ADOP[0], TXT.STR_TXT.ADOP[1], TXT.STR_TXT.ADOP[2]);
+  printf("\tTXT.STR_TXT.OPER in HEX:\t");
+  for (int i = 0; i < ARG; i++)
+  {
+    printf("%.2X ", TXT.STR_TXT.OPER[i]);
+  }
+  printf("\033[0m\n");
+
   return;
 }
 
@@ -685,10 +756,41 @@ int SDC() /*подпр.обр.пс.опер.DC    */
     {
       debugInfo("[INFO] Catch PL");
       arg = atoi(strtok(operand + 2, "'"));
+      printf("  ┣━ arg = [%d]\n", arg);
+      printf("  ┣━ RAB = [%s]\n", RAB);
+
+      // 遍历字符串，直到遇到 null 终止符
+      int length = 0;
+      const char *str = RAB;
+      while (*str != '\0')
+      {
+          length++;
+          str++;
+      }
+
+      // 从个位开始，每个十进制位占用 半字节（4BIT）
       // Для константы типа PL. Смещаем значение на 4 и прибавляем C
-      oper[arg - 1] = 0xC + (atoi(RAB) << 4);
+      int offset = 0;
+      int i_arg = arg - 1;
+      oper[i_arg] = 0xC;   // 0xC 代表正数
+      while (length != 0)
+      {
+        length--;
+        offset += 4;  // 每次多移动 4 Bit（个、十、百、千、万、位）
+        int cur_num = RAB[length] - '0'; // 将字符转换为整数
+        if (offset % 8 == 0)  // 只能保证 2 位十进制正确
+        {
+          i_arg--;
+          offset = 0;
+        }
+        printf("  ┣━ Handle DEC char-[%c] int-[%d], offset will be [%d]\n", RAB[length], cur_num, offset);
+        oper[i_arg] += (0x0 + (cur_num << offset));
+      }
     }
+
     memcpy(BUF_VAR, oper, arg);
+    printf("  ┗━ BUF_VAR = [%s]\n", oper);
+    // printHex(oper);
     free(oper);
 
     STXT(arg, 1);
@@ -718,6 +820,7 @@ int SDS() /*подпр.обр.пс.опер.DS    */
   if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'F')
   {
     RX.OP_RX.B2D2 = 0;
+    printf(" ━━ SDS get 'F'\n");
     STXT(4, 0);
   }
 
@@ -725,17 +828,25 @@ int SDS() /*подпр.обр.пс.опер.DS    */
   else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "BL", 2) == 0)
   {
     char *operand = (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND;
-    arg = atoi(strtok(operand, "BL")) / BYTE_SIZE; // Длина/
-    char *oper;
-    oper = calloc(arg, sizeof(char));
+    arg = atoi(strtok(operand, "BL")) / BYTE_SIZE; // Длина
+    char* oper = calloc(arg, sizeof(char));
     memcpy(BUF_VAR, oper, arg);
     free(oper);
-    STXT ( arg, 1 );                             /*формирование TXT-карты  */
+    printf("  ┗━ SDS get 'BL', arg = [%d], oper = [%s]\n", arg, oper);
+    STXT(arg, 1);                             /*формирование TXT-карты  */
   }
-  else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0F", 2) == 0)
-  {STXT(4, 1);}  // ?
-  else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0H", 2) == 0)
-  {STXT(4, 1);}
+  else if (   memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0F", 2) == 0
+           || memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0H", 2) == 0)
+  {
+
+    char* oper = calloc(4, sizeof(char));
+    memcpy(BUF_VAR, oper, 4);
+    free(oper);
+    printf("━━ SDS get '0F'/'0H', going to STXT\n");
+    STXT(4, 3);
+  }  // ?
+  // else if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "0H", 2) == 0)
+  // {STXT(4, 1);}
   /* ######################################################################## */
 
   else                                               /*иначе                   */
@@ -1420,7 +1531,8 @@ main1:
 
     printf(("------------------------------------\n"));
     printf(("[INFO] Reading TEK_ISX_KARTA.BUFCARD:\n"));
-    printf((TEK_ISX_KARTA.BUFCARD));
+    printf(TEK_ISX_KARTA.BUFCARD);
+    // printHex(TEK_ISX_KARTA.BUFCARD);
 
     if (TEK_ISX_KARTA.STRUCT_BUFCARD.METKA[0] ==   /*переход при отсутствии  */
         ' ')                                       /*метки                   */
