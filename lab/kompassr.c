@@ -7,7 +7,6 @@
 #include <stdlib.h>   /*вкл.подпрогр.преобр.данн*/
 #include <stdio.h>    /*вкл.подпр.станд.вв/выв  */
 #include <ctype.h>    /*вкл.подпр.классиф.симв. */
-
 /*
 ******* Б Л О К  об'явлений статических рабочих переменных
 */
@@ -17,6 +16,8 @@
 #define ENABLE_DEBUG      1
 unsigned char BUF_VAR[8];
 int arg;
+#define PRINT_ALL_LOG     0
+
 
 char NFIL[30] = "\x0";
 
@@ -149,7 +150,7 @@ union /*определить об'единение  */
 ***** СЧЕТЧИК относительного адреса (смещешия относительно базы )
 */
 
-int CHADR; /*счетчик                 */
+int CHADR; /*счетчик 相对地址计数器（相对于基数的偏移量）*/
 
 /*
 ***** ТАБЛИЦА символов
@@ -294,24 +295,27 @@ union
      * B2 -> 0.5
      * D2 -> 1.5
      */
-    unsigned char BUF_OP_SS[4];
+    unsigned char BUF_OP_SS[6];
     struct OPSS
     {
         unsigned char OP;   /*< код операции */
         unsigned char L;    /*< количество перемещаемых символов */
         unsigned char B1D1; /*< номер 1-го базового регистра и пол-байта 1-го смещения */
+        unsigned char D1;   /*< смещение 1-го регистра (оставшаяся часть) */
         unsigned char B2D2; /*< номер 2-го базового регистра и пол-байта 2-го смещения */
+        unsigned char D2;   /*< смещение 2-го регистра (оставшаяся часть) */
     } OPSS;
 
 } SS;
 
 union
 {
-    unsigned char BUF_OP_RS[3];
+    unsigned char BUF_OP_RS[4];
     struct OPRS
     {
         unsigned char OP;   /*< код операции */
         unsigned char R1S2;  
+        unsigned char S2;  
         unsigned char PTR; // ?
     } OPRS;
 
@@ -411,8 +415,10 @@ int FDC() /*подпр.обр.пс.опер.DC    */
         PRNMET = 'N';
         if ( TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'B' )
             CHADR += T_SYM[ITSYM].DLSYM / BYTE_SIZE;
-        else
+        else  // DC PXXX
             CHADR += T_SYM[ITSYM].DLSYM;
+
+        return 0; // ? 不确定，有问题删掉
     }
   /* ######################################################################## */
   /* ################################ DOING ################################ */
@@ -454,31 +460,53 @@ int FDS() /*подпр.обр.пс.опер.DS    */
       }
       PRNMET = 'N'; /*  занулить PRNMET зн.'N'*/
     }
-    
-/* ######################################################################## */
-/* ######################################################################## */
-/* ######################################################################## */
 
-  else if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'B')
-  {
-    T_SYM[ITSYM].DLSYM = atoi(strtok( (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND + 2, ""));
-    PRNMET = 'N';
-    CHADR += T_SYM[ITSYM].DLSYM / BYTE_SIZE;
-  }
-/* ######################################################################## */
-/* ######################################################################## */
-/* ######################################################################## */
+    /* ######################################################################## */
+    /* ######################################################################## */
+    /* ######################################################################## */
+
+    else if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[0] == 'B')
+    {
+      T_SYM[ITSYM].DLSYM = atoi(strtok((char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND + 2, ""));
+      PRNMET = 'N';
+      CHADR += T_SYM[ITSYM].DLSYM / BYTE_SIZE; // B开头的是以 Bit 形式写入的，所以转成字节
+      return 0;                                // ? 不确定，有问题删掉
+    }
+    /* ######################################################################## */
+    /* ######################################################################## */
+    /* ######################################################################## */
 
     else
       return (1); /* иначе выход по ошибке  */
   }
 
-
-
   else /*если же псевдооп.непомеч*/
   {
-    if (CHADR % 4)                 /*и CHADR не кратен 4,то: */
-      CHADR = (CHADR / 4 + 1) * 4; /* установ.CHADR на гр.сл.*/
+    /* ######################################################################## */
+    /* ######################################################################## */
+    /* ######################################################################## */
+    // DS 0H, DS 0F
+    if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[1] == 'H')
+    {
+      if (CHADR % 2)
+      {
+        CHADR = (CHADR / 2 + 1) * 2;
+      }
+    }
+    else if (TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND[1] == 'F')
+    {
+      if (CHADR % 4)
+      {
+        CHADR = (CHADR / 4 + 1) * 4;
+      }
+    }
+    return 0;
+    /* ######################################################################## */
+    /* ######################################################################## */
+    /* ######################################################################## */
+
+    // if (CHADR % 4)                 /*и CHADR не кратен 4,то: */
+    //   CHADR = (CHADR / 4 + 1) * 4; /* установ.CHADR на гр.сл.*/
   }
   CHADR = CHADR + 4; /*увелич.CHADR на 4 и     */
   return (0);        /*успешно завершить подпр.*/
@@ -656,9 +684,11 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
         else if (mod == 0)  // XX XX XX XX <-- 无需对齐
         {
           ARG = 0;
-
+#if !PRINT_ALL_LOG
+  freopen("/dev/tty", "w", stdout);
+#endif
           printf("\033[0m\033[1;33m!!! No memory alignment required !!!\n");
-          printf("\n[STXT]\tTEK_ISX_KARTA:\t\t\t%.28s\n", TEK_ISX_KARTA.BUFCARD);
+          printf("[STXT]\tTEK_ISX_KARTA:\t\t\t%.28s\n", TEK_ISX_KARTA.BUFCARD);
           printf("\tДлина\t\t\t\t%d Byte\n", ARG);
           printf("\tTXT.STR_TXT.ADOP in HEX:\t%02X %02X %02X (address)\n",
                  TXT.STR_TXT.ADOP[0], TXT.STR_TXT.ADOP[1], TXT.STR_TXT.ADOP[2]);
@@ -667,8 +697,10 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
           {
             printf("%.2X ", TXT.STR_TXT.OPER[i]);
           }
-          printf("\033[0m\n");
-          
+          printf("\033[0m\n\n");
+#if !PRINT_ALL_LOG
+  fclose(stdout);
+#endif
           return;
         }
   }
@@ -696,9 +728,13 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   CHADR = CHADR + ARG;                           /*коррекц.счетчика адреса */
 
   // 打印信息
+#if !PRINT_ALL_LOG
+  freopen("/dev/tty", "w", stdout);
+#endif
   printf("\033[0m\033[1;32m");
-  printf("\n[STXT]\tTEK_ISX_KARTA:\t\t\t%.28s\n", TEK_ISX_KARTA.BUFCARD);
+  printf("[STXT]\tTEK_ISX_KARTA:\t\t\t%.28s\n", TEK_ISX_KARTA.BUFCARD);
   printf("\tДлина\t\t\t\t%d Byte\n", ARG);
+  // printf("\tCHADR HEX\t\t\t%.2X\n", CHADR);
   printf("\tTXT.STR_TXT.ADOP in HEX:\t%02X %02X %02X (address)\n",
          TXT.STR_TXT.ADOP[0], TXT.STR_TXT.ADOP[1], TXT.STR_TXT.ADOP[2]);
   printf("\tTXT.STR_TXT.OPER in HEX:\t");
@@ -706,8 +742,10 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   {
     printf("%.2X ", TXT.STR_TXT.OPER[i]);
   }
-  printf("\033[0m\n");
-
+  printf("\033[0m\n\n");
+#if !PRINT_ALL_LOG
+  fclose(stdout);
+#endif
   return;
 }
 
@@ -745,12 +783,15 @@ int SDC() /*подпр.обр.пс.опер.DC    */
     char* operand = (char *)TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND;
     RAB = strtok(operand + 4, "'"); // Значение
     char* oper = calloc(arg, sizeof(char));
+
     if (memcmp(TEK_ISX_KARTA.STRUCT_BUFCARD.OPERAND, "BL", 2) == 0)
     {
       debugInfo("[INFO] Catch BL");
       arg = atoi(strtok(operand + 2, "'")) / BYTE_SIZE; // Длина
       // Смещение бита в начало.
       oper[0] = atoi(RAB) << 7;
+      printf("  ┣━ arg = [%d]\n", arg);
+      printf("  ┣━ RAB = [%s]\n", RAB);
     }
     else
     {
@@ -789,7 +830,7 @@ int SDC() /*подпр.обр.пс.опер.DC    */
     }
 
     memcpy(BUF_VAR, oper, arg);
-    printf("  ┗━ BUF_VAR = [%s]\n", oper);
+    printf("  ┗━ BUF_VAR = [%X]\n", oper);
     // printHex(oper);
     free(oper);
 
@@ -1301,14 +1342,14 @@ int SSS() /*подпр.обр.опер.SS-форм. */
   ARGLEN = strtok(NULL, ")");
   printf("\t ┃ ┗━━ Get [ARGLEN = %s]\n", ARGLEN);
 
-  SS.OPSS.L = atoi(ARGLEN) - 1;               /*переносим знач. длины - 1*/
+  SS.OPSS.L = atoi(ARGLEN) - 1;                /*переносим знач. длины - 1*/
   if (isalpha((int)*METKA1) || *METKA1 == '@') /*если лексема начинается */
   {                                            /*с буквы или @, то:        */
     for (J = 0; J <= ITSYM; J++)               /* все метки исх.текста в */
     {                                          /* табл. T_SYM сравниваем */
                                                /* со знач.перем. *МЕТКА  */
-      METKA = strtok(
-          (char *)T_SYM[J].IMSYM, " ");
+      METKA = strtok((char *)T_SYM[J].IMSYM, " ");
+      
       if (!strcmp(METKA, METKA1))             /* и при совпадении:      */
       {                                       /*  установить нач.знач.: */
         NBASRG = 0;                           /*   номера базов.регистра*/
@@ -1337,6 +1378,11 @@ int SSS() /*подпр.обр.опер.SS-форм. */
           PTR = (char *)&B1D1;            /* и в соглашениях ЕС ЭВМ */
           swab(PTR, PTR, 2);              /* с записью в тело ком-ды*/
           SS.OPSS.B1D1 = B1D1;
+          SS.OPSS.D1 = (B1D1 >> 8) & 0xFF;
+          printf("\t ┣━┳━ Get int NBASRG [%.4X]\n", NBASRG);
+          printf("\t ┃ ┣━ Get int DELTA [%.4X]\n", DELTA);
+          printf("\t ┃ ┣━ Get int B1D1 [%X]\n", B1D1);
+          printf("\t ┃ ┗━━ Get SS.OPSS.B1D1 [%.2X %.2X]\n", SS.OPSS.B1D1, SS.OPSS.D1);
         }
         goto SSS1; /*перех.на форм.второго   */
       }            /*  опреранда в машинной ком*/
@@ -1378,11 +1424,16 @@ SSS1:
           return (5);                     /* заверш.подпр.по ошибке */
         else                              /*иначе                   */
         {                                 /* сформировыать машинное */
-          B2D2 = NBASRG << 12;            /* представление второго  */
+          B2D2 = NBASRG << 12; // F000    /* представление второго  */
           B2D2 = B2D2 + DELTA;            /* операнда в виде B2D2   */
           PTR = (char *)&B2D2;            /* и в соглашениях ЕС ЭВМ */
           swab(PTR, PTR, 2);              /* с записью в тело ком-ды*/
           SS.OPSS.B2D2 = B2D2;
+          SS.OPSS.D2 = (B2D2 >> 8) & 0xFF;
+          printf("\t ┣━┳━ Get int NBASRG [%.4X]\n", NBASRG);
+          printf("\t ┃ ┣━ Get int DELTA [%.4X]\n", DELTA);
+          printf("\t ┃ ┣━ Get int B2D2 [%.4X]\n", B2D2);
+          printf("\t ┃ ┗━━ Get SS.OPSS.B2D2 [%.2X %.2X]\n", SS.OPSS.B2D2, SS.OPSS.D2);
         }
         goto SSS2;
       }
@@ -1435,7 +1486,12 @@ SRS1:
   B2D2 = atoi(METKA2);
   PTR = (char *)&B2D2;
   RS.OPRS.R1S2 = R1S2;
-  RS.BUF_OP_RS[3] = *PTR;
+  RS.OPRS.S2   = (R1S2 >> 8) & 0xFF;
+  RS.OPRS.PTR  = *PTR;
+
+  printf("\t ┣━┳━ Get int R1S2 [%x]\n", R1S2);
+  printf("\t ┃ ┗━━ Get RS.OPRS.R1S2 [%.2X %.2X]\n", RS.OPRS.R1S2, RS.OPRS.S2);
+
   STXT(4, 2);
   return (0); /*выйти из подпрограммы   */
 }
