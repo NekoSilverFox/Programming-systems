@@ -11,6 +11,48 @@
 #include <locale.h>
 #include <ncursesw/ncurses.h>
 
+#define NSPIS 5    /*разм.списка загр.прогр. */
+#define NOBJ 50    /*разм.масс.об'ектных карт*/
+#define DOBLZ 1024 /*длина области загрузки  */
+#define NOP (6 + 9)/*кол-во обрабатываемых   */
+                   /* команд                 */
+
+#define LEN_ROW_TEX 80 // 输入 .tex 文件一行的长度（字符数）
+
+char NFIL[30] = "\x0";
+
+int IOBJC = 0;                   /*инд.вакантн.стр. OBJCARD*/
+char OBJCARD[NOBJ][LEN_ROW_TEX]; /*масс.хранен.об'ектн.карт*/
+
+int ISPIS = 0;                   /*инд.вакантн.стр. SPISOK */
+char SPISOK[NSPIS][LEN_ROW_TEX]; /*масс.хранен.списка прогр*/
+
+WINDOW *wblue, *wgreen, *wred, *wcyan, *wmargenta, *wyellow;
+
+struct STR_BUF_TXT /*структ.буфера карты TXT */
+{
+  unsigned char POLE1;     /*место для кода 0x02     */
+  unsigned char POLE2[3];  /*поле типа об'ектн.карты */
+  unsigned char POLE3;     /*пробел                  */
+  unsigned char ADOP[3];   /*относит.адрес опреации  */
+  unsigned char POLE5[2];  /*пробелы                 */
+  unsigned char DLNOP[2];  /*длина операции          */
+  unsigned char POLE7[2];  /*пробелы                 */
+  unsigned char POLE71[2]; /*внутренний идент.прогр. */
+  unsigned char OPER[56];  /*тело операции           */
+  unsigned char POLE9[8];  /*идентификационное поле  */
+};
+
+union /*определить об'единение  */
+{
+  struct STR_BUF_TXT STR_TXT;         /*структура буфера        */
+  unsigned char BUF_TXT[LEN_ROW_TEX]; /*буфер карты TXT         */
+} TXT;
+
+unsigned char INST[6]; /*массив, содерж. обрабат.*/
+                       /*команду                 */
+
+
 //////////////////////////////////////// 自定义功能 ////////////////////////////////////////
 // 定义一个宏，自动填充函数名和行号
 #define LOG_MSG(msg, ...) { log_to_file(__FUNCTION__, __LINE__, msg, ##__VA_ARGS__); }
@@ -89,48 +131,21 @@ char *getBitStr(long num)
     return bitString;
 
 }
+
+/**
+ * @brief 为绿色部分添加换行符(也就是把每行剩余部分全部都填充成空格)。如果不使用这个函数那么可能在 UTF-8 环境下会造成错误（绿色区域显示异常）
+ */
+void greenNewLine()
+{
+  int x, y;  // 光标位置
+  getyx(wgreen, y, x);
+  LOG_MSG("光标位置 x = [%d], y = [%d]", x, y)
+  for (int i = 0; i < 67 - x; i++)
+  {
+    waddch(wgreen, ' ');
+  }
+}
 ////////////////////////////////////////////////////////////////////////////////////////
-
-#define NSPIS 5    /*разм.списка загр.прогр. */
-#define NOBJ 50    /*разм.масс.об'ектных карт*/
-#define DOBLZ 1024 /*длина области загрузки  */
-#define NOP (6 + 9)/*кол-во обрабатываемых   */
-                   /* команд                 */
-
-#define LEN_ROW_TEX 80 // 输入 .tex 文件一行的长度（字符数）
-
-char NFIL[30] = "\x0";
-
-int IOBJC = 0;                   /*инд.вакантн.стр. OBJCARD*/
-char OBJCARD[NOBJ][LEN_ROW_TEX]; /*масс.хранен.об'ектн.карт*/
-
-int ISPIS = 0;                   /*инд.вакантн.стр. SPISOK */
-char SPISOK[NSPIS][LEN_ROW_TEX]; /*масс.хранен.списка прогр*/
-
-WINDOW *wblue, *wgreen, *wred, *wcyan, *wmargenta, *wyellow;
-
-struct STR_BUF_TXT /*структ.буфера карты TXT */
-{
-  unsigned char POLE1;     /*место для кода 0x02     */
-  unsigned char POLE2[3];  /*поле типа об'ектн.карты */
-  unsigned char POLE3;     /*пробел                  */
-  unsigned char ADOP[3];   /*относит.адрес опреации  */
-  unsigned char POLE5[2];  /*пробелы                 */
-  unsigned char DLNOP[2];  /*длина операции          */
-  unsigned char POLE7[2];  /*пробелы                 */
-  unsigned char POLE71[2]; /*внутренний идент.прогр. */
-  unsigned char OPER[56];  /*тело операции           */
-  unsigned char POLE9[8];  /*идентификационное поле  */
-};
-
-union /*определить об'единение  */
-{
-  struct STR_BUF_TXT STR_TXT;         /*структура буфера        */
-  unsigned char BUF_TXT[LEN_ROW_TEX]; /*буфер карты TXT         */
-} TXT;
-
-unsigned char INST[6]; /*массив, содерж. обрабат.*/
-                       /*команду                 */
 
 /*..........................................................................*/
 /*п р о т о т и п  обращ.к*/
@@ -370,81 +385,6 @@ int P_S()
   return 0; /*успешное заверш.прогр.  */
 }
 
-//..........................................................................
-int FRR(void)
-{
-  int i, j;
-
-  for (i = 0; i < NOP; i++)
-  {
-    if (INST[0] == T_MOP[i].CODOP)
-    {
-      waddstr(wgreen, "      ");
-      for (j = 0; j < 5; j++)
-        waddch(wgreen, T_MOP[i].MNCOP[j]);
-      waddstr(wgreen, " ");
-
-      j = (INST[1] - (INST[1] % 0x10)) / 0x10;
-      R1 = j;
-      wprintw(wgreen, "%1d, ", j);
-
-      j = INST[1] % 0x10;
-      R2 = j;
-      wprintw(wgreen, "%1d", j);
-      waddstr(wgreen, "\n");
-      break;
-    }
-  }
-
-  return 0;
-}
-
-//...........................................................................
-int FRX()
-{
-  int i, j;
-
-  for (i = 0; i < NOP; i++)
-  {
-    if (INST[0] == T_MOP[i].CODOP)
-    {
-      waddstr(wgreen, "  ");
-      for (j = 0; j < 5; j++)
-        waddch(wgreen, T_MOP[i].MNCOP[j]);
-      waddstr(wgreen, " ");
-
-      j = INST[1] >> 4;
-      R1 = j;
-      wprintw(wgreen, "%.1d, ", j);
-
-      j = INST[2] % 16;
-      j = j * 256 + INST[3];
-      D = j;
-      wprintw(wgreen, "X'%.3X'(", j);
-
-      j = INST[1] % 16;
-      X = j;
-      wprintw(wgreen, "%1d, ", j);
-
-      j = INST[2] >> 4;
-      B = j;
-      wprintw(wgreen, "%1d)", j);
-
-      ADDR = VR[B] + VR[X] + D;
-      wprintw(wgreen, "\t%.06lX\n", ADDR);
-
-      // if (ADDR % 4 != 0)
-      // {
-      //   LOG_MSG("FRX 异常")
-      //   return (7);  // ERROR
-      // }
-      break;
-    }
-  }
-
-  return 0;
-}
-
 
 // #####################################################################
 // #####################################################################
@@ -562,7 +502,89 @@ int P_STH()
     OBLZ[BAS_IND + CUR_IND + sm + i] = bytes[i];
   return 0;
 }
+// #####################################################################
+// #####################################################################
 
+//..........................................................................
+int FRR(void)
+{
+  int i, j;
+
+  for (i = 0; i < NOP; i++)
+  {
+    if (INST[0] == T_MOP[i].CODOP)
+    {
+      waddstr(wgreen, "      ");
+      for (j = 0; j < 5; j++)
+        waddch(wgreen, T_MOP[i].MNCOP[j]);
+      waddstr(wgreen, " ");
+
+      j = (INST[1] - (INST[1] % 0x10)) / 0x10;
+      R1 = j;
+      wprintw(wgreen, "%1d, ", j);
+
+      j = INST[1] % 0x10;
+      R2 = j;
+      wprintw(wgreen, "%1d", j);
+      greenNewLine();
+      break;
+    }
+  }
+
+  return 0;
+}
+
+//...........................................................................
+int FRX()
+{
+  int i, j;
+
+  for (i = 0; i < NOP; i++)
+  {
+    if (INST[0] == T_MOP[i].CODOP)
+    {
+      waddstr(wgreen, "  ");
+      for (j = 0; j < 5; j++)
+        waddch(wgreen, T_MOP[i].MNCOP[j]);
+      waddstr(wgreen, " ");
+
+      j = INST[1] >> 4;
+      R1 = j;
+      wprintw(wgreen, "%.1d, ", j);
+
+      j = INST[2] % 16;
+      j = j * 256 + INST[3];
+      D = j;
+      wprintw(wgreen, "X'%.3X'(", j);
+
+      j = INST[1] % 16;
+      X = j;
+      wprintw(wgreen, "%1d, ", j);
+
+      j = INST[2] >> 4;
+      B = j;
+      wprintw(wgreen, "%1d)", j);
+
+      ADDR = VR[B] + VR[X] + D;
+      wprintw(wgreen, "\t%.06lX", ADDR);
+
+      // if (ADDR % 4 != 0)
+      // {
+      //   LOG_MSG("FRX 异常")
+      //   return (7);  // ERROR
+      // }
+      greenNewLine();
+      break;
+    }
+  }
+
+  return 0;
+}
+
+
+
+// #####################################################################
+// #####################################################################
 // MVC
 int FSS()
 {
@@ -602,8 +624,8 @@ int FSS()
       wprintw(wgreen," %.06lX ", ADDR);
 
       ADDR = VR[B2] + D2;
-      wprintw(wgreen,"%.06lX\n", ADDR);
-
+      wprintw(wgreen,"%.06lX", ADDR);
+      greenNewLine();
       break;
     }
   }
@@ -637,9 +659,9 @@ int FRS(void)
         wprintw(wgreen, "%1d)", j);
 
         ADDR = VR[B] + VR[X] + D;
-        waddstr(wgreen, "\n");
-        // wprintw(wgreen, "\t\t%.07lX\n", ADDR);
 
+        greenNewLine();
+        // wprintw(wgreen, "\t\t%.07lX\n", ADDR);
         break;
       }
     }
@@ -787,18 +809,20 @@ l0:
   wrefresh(wgreen);
   ii++;
   if (gr_pos_y > 14 - gr_y + 1)
-    mvwin(wgreen, gr_pos_y--, gr_pos_x);
+    mvwin(wgreen, gr_pos_y--, gr_pos_x);  // 如果还没有到达滚动位置，只移动窗口
   // при достижении некоторого положения, движение останавливается, и производится прокрутка окна
   else
   {
     for (jj = 0; jj < gr_y - 1; jj++)
     {
-      temp = mvwinnstr(wgreen, jj + 1, 0, wstr, 67);
-      mvwaddnstr(wgreen, jj, 0, wstr, 67);
-      wrefresh(wgreen);
+      // temp = mvwinnstr(wgreen, jj + 1, 0, wstr, 67);
+      // mvwaddnstr(wgreen, jj, 0, wstr, 67);
+      temp = mvwinnstr(wgreen, jj + 1, 0, wstr, -1);
+      mvwaddnstr(wgreen, jj, 0, wstr, -1);
     }
   }
   wrefresh(wgreen);
+
 
   I += T_MOP[k].DLOP;            /*коррекция счет-ка.адреса*/
   CUR_IND = (int)(I - BAS_ADDR); /*уст-ка текущ. индекса   */
@@ -816,7 +840,10 @@ l0:
   }
   wrefresh(wblue); // вывод на экран
   wclear(wblue);   // очистка окна регистров
-  wind();
+
+
+  wind();  // 红色部分
+
 
   waddstr(wcyan, "готовность к выполнению очередной команды с адресом ");
   wprintw(wcyan, "%.06lX", I - T_MOP[k].DLOP);
@@ -825,7 +852,6 @@ l0:
   wclear(wcyan);
 
   // #####################################################################
-  
   waddstr(wyellow, "┏COMM. COUNT");
   waddstr(wyellow, "┗━━━ ");
   wprintw(wyellow, "%.3d", com_count);
@@ -994,6 +1020,7 @@ int InitCurses(void)
   noecho();             // 禁止回显输入字符
   cbreak();             // 将终端设置为 cbreak 模式，这意味着输入的字符会立即被程序读取，而不需要等待回车键
   keypad(stdscr, TRUE); // 允许 stdscr 窗口捕捉键盘上的特殊键，并将它们转换为适当的 curses 键码
+  scrollok(wgreen, TRUE);  // 允许窗口滚动 出问题的话删除
   start_color();        // 初始化颜色显示功能
 
   // 定义了一些颜色对。颜色对是前景色和背景色的组合，可以通过 attron(COLOR_PAIR(n)); 来激活
@@ -1005,7 +1032,7 @@ int InitCurses(void)
     init_pair(COLOR_CYAN, COLOR_BLACK, COLOR_CYAN);
     init_pair(COLOR_MAGENTA, COLOR_WHITE, COLOR_MAGENTA);
     // #####################################################################
-    init_pair(COLOR_YELLOW, COLOR_BLACK, COLOR_YELLOW);
+    init_pair(COLOR_YELLOW, COLOR_RED, COLOR_YELLOW);
     // #####################################################################
   }
 
