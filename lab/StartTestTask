@@ -42,19 +42,19 @@ echo ' Assembler  ----->  Object image   c o m p i l i n g'
 # exit
 ./kompassr.exe examppl.ass
 #fi
-echo
-echo
-echo
-echo ' Load, run and debug Object image  '
-echo ">>> continue?(y/n)"
-read OTV
-if [ "$OTV" = "y" ] 
-then
-echo
+# echo
+# echo
+# echo
+# echo ' Load, run and debug Object image  '
+# echo ">>> continue?(y/n)"
+# read OTV
+# if [ "$OTV" = "y" ] 
+# then
+# echo
 ./absloadm.exe spis.mod
-else
-echo
-exit
-fi
-echo
+# else
+# echo
+# exit
+# fi
+# echo
 echo "______________F I N I S H     J O B__________________"

@@ -390,7 +390,8 @@ int FRR(void)
 
       j = INST[1] % 0x10;
       R2 = j;
-      wprintw(wgreen, "%1d\n", j);
+      wprintw(wgreen, "%1d", j);
+      waddstr(wgreen, "\n");
       break;
     }
   }
@@ -430,7 +431,7 @@ int FRX()
       wprintw(wgreen, "%1d)", j);
 
       ADDR = VR[B] + VR[X] + D;
-      wprintw(wgreen, "        %.06lX       \n", ADDR);
+      wprintw(wgreen, "\t%.06lX\n", ADDR);
 
       // if (ADDR % 4 != 0)
       // {
@@ -449,36 +450,37 @@ int FRX()
 // #####################################################################
 int P_MVC()
 {
-    ADDR = VR[B] + D;
-    int sm = ( int ) ( ADDR -I );
-    ADDR = VR[B2] + D2;
-    int sm2 = ( int ) ( ADDR -I );
-    for (i = 0; i < L + 1; i++)
-    {
-        OBLZ[BAS_IND  + CUR_IND + sm + i] =  OBLZ[BAS_IND + CUR_IND + sm2 + i];
-    }
-    return 0;
+  ADDR = VR[B] + D;
+  int sm = (int)(ADDR - I);
+
+  ADDR = VR[B2] + D2;
+  int sm2 = (int)(ADDR - I);
+  for (i = 0; i < L + 1; i++)
+  {
+    OBLZ[BAS_IND + CUR_IND + sm + i] = OBLZ[BAS_IND + CUR_IND + sm2 + i];
+  }
+  return 0;
 }
 
 int P_CVB()
 {
-    ADDR = VR[B] + VR[X] + D;
-    int sm = ( int ) ( ADDR -I );
-    ARG = 0;
-    for (int i = 0; i < 15; i++)
+  ADDR = VR[B] + VR[X] + D;
+  int sm = (int)(ADDR - I);
+  ARG = 0;
+  for (int i = 0; i < 15; i++)
+  {
+    ARG *= 10;
+    if (i % 2 == 0)
     {
-        ARG *= 10;
-        if (i % 2 == 0)
-        {
-            ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] >> 4;
-        }
-        else
-        {
-            ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] % 16;
-        }
+      ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] >> 4;
     }
-    VR[R1] = ARG;
-    return 0;
+    else
+    {
+      ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] % 16;
+    }
+  }
+  VR[R1] = ARG;
+  return 0;
 }
 
 int P_LR()
@@ -489,40 +491,39 @@ int P_LR()
 
 int P_N()
 {
-    int sm;
-    ADDR = VR[B] + VR[X] + D;
-    sm = ( int ) ( ADDR - I );
-    ARG = OBLZ[BAS_IND + CUR_IND + sm]     * 0x1000000L +
-          OBLZ[BAS_IND + CUR_IND + sm + 1] * 0x10000L   +
-          OBLZ[BAS_IND + CUR_IND + sm + 2] * 0x100      +
-          OBLZ[BAS_IND + CUR_IND + sm + 3];
-    VR[R1] = VR[R1] & ARG;
-    return 0;
+  int sm;
+  ADDR = VR[B] + VR[X] + D;
+  sm = (int)(ADDR - I);
+  ARG = OBLZ[BAS_IND + CUR_IND + sm]     * 0x1000000L +
+        OBLZ[BAS_IND + CUR_IND + sm + 1] * 0x10000L +
+        OBLZ[BAS_IND + CUR_IND + sm + 2] * 0x100 +
+        OBLZ[BAS_IND + CUR_IND + sm + 3];
+  VR[R1] = VR[R1] & ARG;
+  return 0;
 }
 
 int P_C()
 {
-    int sm;
-    ADDR = VR[B] + VR[X] + D;
-    sm = ( int ) ( ADDR - I );
-    unsigned long var1 = VR[R1];
-    unsigned long var2 = OBLZ[BAS_IND + CUR_IND + sm]     * 0x1000000L +
-                         OBLZ[BAS_IND + CUR_IND + sm + 1] * 0x10000L   +
-                         OBLZ[BAS_IND + CUR_IND + sm + 2] * 0x100      +
-                         OBLZ[BAS_IND + CUR_IND + sm + 3];
+  int sm;
+  ADDR = VR[B] + VR[X] + D;
+  sm = (int) (ADDR - I);
+  unsigned long var1 = VR[R1];
+  unsigned long var2 = OBLZ[BAS_IND + CUR_IND + sm]     * 0x1000000L +
+                       OBLZ[BAS_IND + CUR_IND + sm + 1] * 0x10000L   +
+                       OBLZ[BAS_IND + CUR_IND + sm + 2] * 0x100      +
+                       OBLZ[BAS_IND + CUR_IND + sm + 3];
 
-    if      (var1 == var2) cc = 0;
-    else if (var1 < var2)  cc = 1;
-    else if (var1 > var2)  cc = 2;
+  if      (var1 == var2) cc = 0;
+  else if (var1 < var2)  cc = 1;
+  else if (var1 > var2)  cc = 2;
 
-    return 0;
+  return 0;
 }
 
 int P_BC()
 {
     ADDR = VR[B] + VR[X] + D;
-    // Logical AND, Ex. 2 & 6 = 2, 0 & 6 = 0
-    /**
+    /** Logical AND, Ex. 2 & 6 = 2, 0 & 6 = 0
      * BC 6   @BREAK  Если НЕ равно 0, то перейти к @BREAK (mask-bits: 0110)
      * BC 15  @LOOP   Безусловный переход к @LOOP
      */
@@ -552,19 +553,17 @@ int P_SRL()
 
 int P_STH()
 {
-    int sm;
-    size_t i;
-    char bytes[2];
-    ADDR = VR[B] + VR[X] + D;
-    sm = (int) ( ADDR - I );
-    bytes[0] = ( (VR[R1] % 0x10000L) - ((VR[R1] % 0x10000L) % 0x100) ) / 0x100;
-    bytes[1] = ( VR[R1] % 0x10000L ) % 0x100;
-    for ( i = 0; i < sizeof( bytes ); i++ )
-        OBLZ[BAS_IND + CUR_IND + sm + i] = bytes[i];
-    return 0;
+  char bytes[2];
+  ADDR = VR[B] + VR[X] + D;
+  int sm = (int)(ADDR - I);
+  bytes[0] = ((VR[R1] % 0x10000L) - ((VR[R1] % 0x10000L) % 0x100)) / 0x100;
+  bytes[1] = (VR[R1] % 0x10000L) % 0x100;
+  for (int i = 0; i < sizeof(bytes); i++)
+    OBLZ[BAS_IND + CUR_IND + sm + i] = bytes[i];
+  return 0;
 }
 
-
+// MVC
 int FSS()
 {
   int i, j;
@@ -572,10 +571,10 @@ int FSS()
   {
     if (INST[0] == T_MOP[i].CODOP)
     {
-      waddstr(wgreen, "  ");
+      waddstr(wgreen, " ");
       for (j = 0; j < 5; j++)
         waddch(wgreen, T_MOP[i].MNCOP[j]);
-      waddstr(wgreen, " ");
+      // waddstr(wgreen, " ");
 
       j = INST[1];
       L = j;
@@ -611,6 +610,7 @@ int FSS()
   return 0;
 }
 
+// FRS/FLR
 int FRS(void)
 {
     int i, j;
@@ -637,7 +637,8 @@ int FRS(void)
         wprintw(wgreen, "%1d)", j);
 
         ADDR = VR[B] + VR[X] + D;
-        wprintw(wgreen, "                                       %.07lX\n", ADDR);
+        waddstr(wgreen, "\n");
+        // wprintw(wgreen, "\t\t%.07lX\n", ADDR);
 
         break;
       }

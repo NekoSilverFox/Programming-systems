@@ -628,7 +628,7 @@ int FRS()
 ******* Б Л О К  об'явлений подпрограмм, используемых при 2-ом просмотре
 */
 
-void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
+void STXT(int ARG, int type) /*подпр.формир.TXT-карты  */
 {
   char *PTR; /*рабоч.переменная-указат.*/
 
@@ -642,7 +642,7 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
   /* ######################################################################## */
   memset(TXT.STR_TXT.OPER, 64, 4);  // 64 - `@`
 
-  if (0 == is_var)
+  if (0 == type)
   {               // Если не переменная, тогда.
     if (ARG == 2) /*формирование поля OPER  */
     {
@@ -660,14 +660,14 @@ void STXT(int ARG, int is_var) /*подпр.формир.TXT-карты  */
       TXT.STR_TXT.DLNOP[1] = 6;
     }
   }
-  else if (2 == is_var)
+  else if (2 == type)
   {
     memcpy(TXT.STR_TXT.OPER, RS.BUF_OP_RS, 4);
     TXT.STR_TXT.DLNOP[1] = 4;
   }
-  else if (3 == is_var) // DC 0F / DS 0F （动态分配）
+  else if (3 == type) // DC 0F / DS 0F （动态分配）
   {
-    printf("  ┗━ [STXT] get is_var = 3\n");
+    printf("  ┗━ [STXT] get type = 3\n");
         int mod = TXT.STR_TXT.ADOP[2] % 4; // 向 4 对齐的长度
         if (mod == 3)  // XX XX XX @@ <-- `@` 是要对齐的地方
         {
