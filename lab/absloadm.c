@@ -15,6 +15,9 @@
 // 定义一个宏，自动填充函数名和行号
 #define LOG_MSG(msg, ...) { log_to_file(__FUNCTION__, __LINE__, msg, ##__VA_ARGS__); }
 
+unsigned int  cc        = 0;  // 条件码：Condition Code
+unsigned int  com_count = 1;  // 记录执行过多少条指令
+unsigned int  SLL_count = 0;  // 记录 SLL 执行过多少次
 
 FILE* logFile = NULL;
 
@@ -64,12 +67,34 @@ char* getStrHexBlock(const char* str, const int length)
     }
     return cur_line;
 }
+
+// 函数用于生成一个 long 类型变量的每个比特位的字符串表示
+char *getBitStr(long num)
+{
+    int bits = sizeof(unsigned long) * 8; // 计算总共有多少比特位
+    int stringSize = bits + bits / 4; // 加上空格和终结符的空间
+    char* bitString = (char*)malloc(stringSize + 1); // 分配字符串空间
+    if (!bitString) return NULL; // 内存分配失败处理
+
+    int pos = 0; // 字符串位置指针
+    for (int i = bits - 1; i >= 0; i--) {
+        int bit = (num >> i) & 1; // 提取当前位
+        bitString[pos++] = bit + '0'; // 存储为字符
+        if (i % 4 == 0 && i != 0) { // 每4位后添加一个空格，除了最后一位
+            bitString[pos++] = ' ';
+        }
+    }
+    bitString[pos] = '\0'; // 终结字符串
+
+    return bitString;
+
+}
 ////////////////////////////////////////////////////////////////////////////////////////
 
 #define NSPIS 5    /*разм.списка загр.прогр. */
 #define NOBJ 50    /*разм.масс.об'ектных карт*/
 #define DOBLZ 1024 /*длина области загрузки  */
-#define NOP 6      /*кол-во обрабатываемых   */
+#define NOP (6 + 9)/*кол-во обрабатываемых   */
                    /* команд                 */
 
 #define LEN_ROW_TEX 80 // 输入 .tex 文件一行的长度（字符数）
@@ -82,7 +107,7 @@ char OBJCARD[NOBJ][LEN_ROW_TEX]; /*масс.хранен.об'ектн.карт*
 int ISPIS = 0;                   /*инд.вакантн.стр. SPISOK */
 char SPISOK[NSPIS][LEN_ROW_TEX]; /*масс.хранен.списка прогр*/
 
-WINDOW *wblue, *wgreen, *wred, *wcyan, *wmargenta;
+WINDOW *wblue, *wgreen, *wred, *wcyan, *wmargenta, *wyellow;
 
 struct STR_BUF_TXT /*структ.буфера карты TXT */
 {
@@ -110,11 +135,18 @@ unsigned char INST[6]; /*массив, содерж. обрабат.*/
 /*..........................................................................*/
 /*п р о т о т и п  обращ.к*/
 int FRR(); /*подпр.обр.опер.RR-форм. */
-
-/*..........................................................................*/
-
-/*п р о т о т и п  обращ.к*/
 int FRX(); /*подпр.обр.опер.RX-форм. */
+
+// #####################################################################
+/** подпр.обр.опер.SS-форм.
+ * L  длина операндов SS формата
+ * B2 номер базового регистра второго операнда SS формата
+ * D2 cмещение второго операнда SS формата
+ */
+int L, B2, D2;
+int FSS();
+int FRS();
+// #####################################################################
 /*..........................................................................*/
 
 /* 在屏幕上初始化代码 */
@@ -138,6 +170,7 @@ unsigned long I,       /*счетчик адр.тек.ком-ды  */
     BAS_ADDR,          /*адрес начала обл.загруз.*/
     I1, ADDR, ARG, VS; /*вспомогательные перем.  */
 
+//  IBM370 中的 16 个寄存器
 unsigned long VR[16], /*массив,содерж.знач.рег. */
     LIGHTPTR;         /*адрес начала обл.отсвет.*/
 
@@ -202,6 +235,17 @@ struct TMOP /*структ.стр.табл.маш.опер*/
         {{'L', ' ', ' ', ' ', ' '}, '\x58', 4, FRX}, /*машинных                */
         {{'A', ' ', ' ', ' ', ' '}, '\x5A', 4, FRX}, /*операций                */
         {{'S', ' ', ' ', ' ', ' '}, '\x5B', 4, FRX},
+        // #####################################################################
+        {{'M', 'V', 'C', ' ', ' '}, '\xD2', 6, FSS},
+        {{'C', 'V', 'B', ' ', ' '}, '\x4F', 4, FRX},
+        {{'L', 'R', ' ', ' ', ' '}, '\x18', 2, FRR},
+        {{'N', ' ', ' ', ' ', ' '}, '\x54', 4, FRX},
+        {{'C', ' ', ' ', ' ', ' '}, '\x59', 4, FRX},
+        {{'B', 'C', ' ', ' ', ' '}, '\x47', 4, FRX},
+        {{'S', 'L', 'L', ' ', ' '}, '\x89', 4, FRS},
+        {{'S', 'R', 'L', ' ', ' '}, '\x88', 4, FRS},
+        {{'S', 'T', 'H', ' ', ' '}, '\x40', 4, FRX}
+        // #####################################################################
 };
 //..........................................................................
 // п р о г р а м м а реализации семантики команды BALR
@@ -355,7 +399,7 @@ int FRR(void)
 }
 
 //...........................................................................
-int FRX(void)
+int FRX()
 {
   int i, j;
 
@@ -387,14 +431,222 @@ int FRX(void)
 
       ADDR = VR[B] + VR[X] + D;
       wprintw(wgreen, "        %.06lX       \n", ADDR);
-      if (ADDR % 4 != 0)
-        return (7);
+
+      // if (ADDR % 4 != 0)
+      // {
+      //   LOG_MSG("FRX 异常")
+      //   return (7);  // ERROR
+      // }
       break;
     }
   }
 
   return 0;
 }
+
+
+// #####################################################################
+// #####################################################################
+int P_MVC()
+{
+    ADDR = VR[B] + D;
+    int sm = ( int ) ( ADDR -I );
+    ADDR = VR[B2] + D2;
+    int sm2 = ( int ) ( ADDR -I );
+    for (i = 0; i < L + 1; i++)
+    {
+        OBLZ[BAS_IND  + CUR_IND + sm + i] =  OBLZ[BAS_IND + CUR_IND + sm2 + i];
+    }
+    return 0;
+}
+
+int P_CVB()
+{
+    ADDR = VR[B] + VR[X] + D;
+    int sm = ( int ) ( ADDR -I );
+    ARG = 0;
+    for (int i = 0; i < 15; i++)
+    {
+        ARG *= 10;
+        if (i % 2 == 0)
+        {
+            ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] >> 4;
+        }
+        else
+        {
+            ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] % 16;
+        }
+    }
+    VR[R1] = ARG;
+    return 0;
+}
+
+int P_LR()
+{
+    VR[R1] = VR[R2];
+    return 0;
+}
+
+int P_N()
+{
+    int sm;
+    ADDR = VR[B] + VR[X] + D;
+    sm = ( int ) ( ADDR - I );
+    ARG = OBLZ[BAS_IND + CUR_IND + sm]     * 0x1000000L +
+          OBLZ[BAS_IND + CUR_IND + sm + 1] * 0x10000L   +
+          OBLZ[BAS_IND + CUR_IND + sm + 2] * 0x100      +
+          OBLZ[BAS_IND + CUR_IND + sm + 3];
+    VR[R1] = VR[R1] & ARG;
+    return 0;
+}
+
+int P_C()
+{
+    int sm;
+    ADDR = VR[B] + VR[X] + D;
+    sm = ( int ) ( ADDR - I );
+    unsigned long var1 = VR[R1];
+    unsigned long var2 = OBLZ[BAS_IND + CUR_IND + sm]     * 0x1000000L +
+                         OBLZ[BAS_IND + CUR_IND + sm + 1] * 0x10000L   +
+                         OBLZ[BAS_IND + CUR_IND + sm + 2] * 0x100      +
+                         OBLZ[BAS_IND + CUR_IND + sm + 3];
+
+    if      (var1 == var2) cc = 0;
+    else if (var1 < var2)  cc = 1;
+    else if (var1 > var2)  cc = 2;
+
+    return 0;
+}
+
+int P_BC()
+{
+    ADDR = VR[B] + VR[X] + D;
+    // Logical AND, Ex. 2 & 6 = 2, 0 & 6 = 0
+    /**
+     * BC 6   @BREAK  Если НЕ равно 0, то перейти к @BREAK (mask-bits: 0110)
+     * BC 15  @LOOP   Безусловный переход к @LOOP
+     */
+    if ((int)(cc & R1) != 0 || R1 == 15)
+    {
+        I = ADDR;
+        CUR_IND = (int)(I - BAS_ADDR);
+        I1 = I;
+    }
+    return 0;
+}
+
+int P_SLL()
+{
+  SLL_count++;
+  ADDR = VR[B] + D;
+  VR[R1] = VR[R1] << ADDR;
+  return 0;
+}
+
+int P_SRL()
+{
+    ADDR = VR[B] + D;
+    VR[R1] = VR[R1] >> ADDR;
+    return 0;
+}
+
+int P_STH()
+{
+    int sm;
+    size_t i;
+    char bytes[2];
+    ADDR = VR[B] + VR[X] + D;
+    sm = (int) ( ADDR - I );
+    bytes[0] = ( (VR[R1] % 0x10000L) - ((VR[R1] % 0x10000L) % 0x100) ) / 0x100;
+    bytes[1] = ( VR[R1] % 0x10000L ) % 0x100;
+    for ( i = 0; i < sizeof( bytes ); i++ )
+        OBLZ[BAS_IND + CUR_IND + sm + i] = bytes[i];
+    return 0;
+}
+
+
+int FSS()
+{
+  int i, j;
+  for (i = 0; i < NOP; i++)
+  {
+    if (INST[0] == T_MOP[i].CODOP)
+    {
+      waddstr(wgreen, "  ");
+      for (j = 0; j < 5; j++)
+        waddch(wgreen, T_MOP[i].MNCOP[j]);
+      waddstr(wgreen, " ");
+
+      j = INST[1];
+      L = j;
+      wprintw(wgreen, "%.1d, ", j+1);
+
+      j = INST[2] % 16;
+      j = j * 256 + INST[3];
+      D = j;
+      wprintw(wgreen, "X'%.3X'(", j);
+
+      j = INST[2] >> 4;
+      B = j;
+      wprintw(wgreen, "%1d), ", j);
+
+      j = INST[4] % 16;
+      j = j * 256 + INST[5];
+      D2 = j;
+      wprintw(wgreen, "X'%.3X'(", j);
+
+      j = INST[4] >> 4;
+      B2 = j;
+      wprintw(wgreen, "%1d)", j);
+
+      ADDR = VR[B] + D;
+      wprintw(wgreen," %.06lX ", ADDR);
+
+      ADDR = VR[B2] + D2;
+      wprintw(wgreen,"%.06lX\n", ADDR);
+
+      break;
+    }
+  }
+  return 0;
+}
+
+int FRS(void)
+{
+    int i, j;
+    for (i = 0; i < NOP; i++)
+    {
+      if (INST[0] == T_MOP[i].CODOP)
+      {
+        waddstr(wgreen, "  ");
+        for (j = 0; j < 5; j++)
+          waddch(wgreen, T_MOP[i].MNCOP[j]);
+        waddstr(wgreen, " ");
+
+        j = INST[1] >> 4;
+        R1 = j;
+        wprintw(wgreen, "%.1d, ", j);
+
+        j = INST[2] % 16;
+        j = j * 256 + INST[3];
+        D = j;
+        wprintw(wgreen, "X'%.3X'(", j);
+
+        j = INST[2] >> 4;
+        B = j;
+        wprintw(wgreen, "%1d)", j);
+
+        ADDR = VR[B] + VR[X] + D;
+        wprintw(wgreen, "                                       %.07lX\n", ADDR);
+
+        break;
+      }
+    }
+    return 0;
+}
+
+// #####################################################################
+// #####################################################################
 
 //...........................................................................
 // 【已修复】输出中的红色部分 ---------------------------------------------------
@@ -487,6 +739,11 @@ int sys(void)
   wgreen = newwin(gr_y, 67, gr_pos_y, gr_pos_x); // создадим новое окно
   wbkgd(wgreen, COLOR_PAIR(COLOR_GREEN));        // выбор цветовой пары
 
+// #####################################################################
+  wyellow = newwin(7, 12, 16, 68);
+  wbkgd(wyellow, COLOR_PAIR(COLOR_YELLOW));
+// #####################################################################
+
   keypad(wmargenta, TRUE); // разрешить преобразование кодов клавиатуры
 
 BEGIN:
@@ -497,7 +754,7 @@ BEGIN:
   {
     if (OBLZ[BAS_IND + CUR_IND] == T_MOP[i].CODOP)
     {
-      LOG_MSG("命中 T_MOP: %.5s\t%.2X\t%d", T_MOP[i].MNCOP, T_MOP[i].CODOP, T_MOP[i].DLOP)
+      LOG_MSG("命中 T_MOP:\t[%.5s]\t[0x%.2X]\t[%d Byte]", T_MOP[i].MNCOP, T_MOP[i].CODOP, T_MOP[i].DLOP)
 
       k = i;
       wprintw(wgreen, "%.06lX: ", I);
@@ -512,11 +769,14 @@ BEGIN:
         else
           INST[j] = '\x00';
       }
-      if ((res = T_MOP[i].BXPROG()) != 0) /* уйти в программу отобр.*/
-        return (res);                     /* ассемблерного эквивале-*/
-                                          /* нта текущей команды,   */
-                                         
-      goto l0;                            /* перейти к дальнейшей  */
+
+      res = T_MOP[i].BXPROG();
+      LOG_MSG("\t┗━ T_MOP[%d].BXPROG() = [%d]\n", i, res)
+      if (res != 0)   /* уйти в программу отобр.*/
+        return (res); /* ассемблерного эквивале-*/
+                      /* нта текущей команды,   */
+
+      goto l0; /* перейти к дальнейшей  */
     }
   }
   return (6);
@@ -562,6 +822,26 @@ l0:
   waddstr(wcyan, "\n");
   wrefresh(wcyan);
   wclear(wcyan);
+
+  // #####################################################################
+  
+  waddstr(wyellow, "┏COMM. COUNT");
+  waddstr(wyellow, "┗━━━ ");
+  wprintw(wyellow, "%.3d", com_count);
+  waddstr(wyellow, "\n");
+
+  waddstr(wyellow, "┏SLL COUNT  ");
+  waddstr(wyellow, "┗━━━ ");
+  wprintw(wyellow, "%.2d", SLL_count);
+  waddstr(wyellow, "\n");
+
+  waddstr(wyellow, "┏CONDI. CODE");
+  waddstr(wyellow, "┗━━━ ");
+  wprintw(wyellow, "%i", cc);
+  waddstr(wyellow, "\n");
+  wrefresh(wyellow);
+  wclear(wyellow);
+  // #####################################################################
 
 WAIT:
   CUR_IND = (int)(I - BAS_ADDR);
@@ -613,6 +893,7 @@ SKIP:
    * согласно  коду команды, селектируемой сч.адреса выбрать подпрогр.интерпретации семантики текущей команды
    * 根据地址计数所选指令的代码，选择一个子程序来解释当前指令的语义
    */
+  com_count++;
   switch (T_MOP[k].CODOP)
   {
   case '\x05':
@@ -643,8 +924,54 @@ SKIP:
     P_S();
     break;
 
-  default:
+// #####################################################################
+  case (unsigned char)'\xD2':
+    P_MVC();
     break;
+
+  case '\x4F':
+    P_CVB();
+    break;
+
+  case '\x18':
+    P_LR();
+    LOG_MSG("@LOOP LR @RRAB, RRAB1: 已将 @RRAB 内容写入 RRAB1")
+    LOG_MSG("R03-@RRAB : %s", getBitStr(VR[3]))
+    LOG_MSG("R04-@RRAB1: %s", getBitStr(VR[4]))
+    break;
+
+  case '\x54':
+    P_N();
+    break;
+
+  case '\x59':
+    P_C();
+    break;
+
+  case '\x47':
+    P_BC();
+    break;
+
+  case (unsigned char)'\x89':
+    P_SLL();
+    LOG_MSG("R03-@RRAB : 0x%.8X", VR[3])
+    LOG_MSG("R03-@RRAB : %s", getBitStr(VR[3]))
+    break;
+
+  case (unsigned char)'\x88':
+    P_SRL();
+    LOG_MSG("@BREAK 循环退出，并执行 SRL @RRAB,16")
+    LOG_MSG("R03-@RRAB : %s", getBitStr(VR[3]))
+    break;
+
+  case '\x40':
+    P_STH();
+    break;
+
+  default:
+    LOG_MSG("错误：未识别的命令")
+    break;
+// #####################################################################
   }
 
   goto BEGIN;
@@ -676,6 +1003,9 @@ int InitCurses(void)
     init_pair(COLOR_RED, COLOR_WHITE, COLOR_RED);
     init_pair(COLOR_CYAN, COLOR_BLACK, COLOR_CYAN);
     init_pair(COLOR_MAGENTA, COLOR_WHITE, COLOR_MAGENTA);
+    // #####################################################################
+    init_pair(COLOR_YELLOW, COLOR_BLACK, COLOR_YELLOW);
+    // #####################################################################
   }
 
   return 0;
