@@ -17,7 +17,9 @@
 #define NOP (6 + 9)/*кол-во обрабатываемых   */
                    /* команд                 */
 
-#define LEN_ROW_TEX 80 // 输入 .tex 文件一行的长度（字符数）
+#define GREEN_RED_LENGTH    67    // 左侧红色绿色区域宽度
+#define BLUE_YELLOW_LENGTH  12    // 右侧蓝色和黄色宽度
+#define LEN_ROW_TEX         80    // 输入 .tex 文件一行的长度（字符数）
 
 char NFIL[30] = "\x0";
 
@@ -53,14 +55,14 @@ unsigned char INST[6]; /*массив, содерж. обрабат.*/
                        /*команду                 */
 
 
-//////////////////////////////////////// 自定义功能 ////////////////////////////////////////
+// @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ 自定义功能 @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 // 定义一个宏，自动填充函数名和行号
 #define LOG_MSG(msg, ...) { log_to_file(__FUNCTION__, __LINE__, msg, ##__VA_ARGS__); }
 
-unsigned int  cc        = 0;  // 条件码：Condition Code
-unsigned int  com_count = 1;  // 记录执行过多少条指令
+unsigned int  cc        = 0;  // 条件码：Condition Code, представляет код состояния (Condition Code), который сохраняет результат сравнения команды C: 0 означает равенство, 1 означает меньше, 2 означает больше
+unsigned int  com_count = 1;  // 记录执行过多少条指令 является счетчиком команд, который записывает, сколько команд было выполнено
 unsigned int  SLL_count = 0;  // 记录 SLL 执行过多少次
-
+// char* state_loop        = "NEVER IN LOOP";
 FILE* logFile = NULL;
 
 // 函数用于打开日志文件，返回FILE指针
@@ -140,12 +142,12 @@ void greenNewLine()
   int x, y;  // 光标位置
   getyx(wgreen, y, x);
   LOG_MSG("光标位置 x = [%d], y = [%d]", x, y)
-  for (int i = 0; i < 67 - x; i++)
+  for (int i = 0; i < GREEN_RED_LENGTH - x; i++)
   {
     waddch(wgreen, ' ');
   }
 }
-////////////////////////////////////////////////////////////////////////////////////////
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 
 /*..........................................................................*/
 /*п р о т о т и п  обращ.к*/
@@ -159,8 +161,8 @@ int FRX(); /*подпр.обр.опер.RX-форм. */
  * D2 cмещение второго операнда SS формата
  */
 int L, B2, D2;
-int FSS();
-int FRS();
+int FSS(); /*подпр.обр.опер.SS-форм. */
+int FRS(); /*подпр.обр.опер.SS-форм. */
 // #####################################################################
 /*..........................................................................*/
 
@@ -388,6 +390,10 @@ int P_S()
 
 // #####################################################################
 // #####################################################################
+/**
+ * @brief MVC  @BUF+5(3),A    0xD2
+ *        D2 02 F0 3F F0 2A
+ */
 int P_MVC()
 {
   ADDR = VR[B] + D;
@@ -402,6 +408,10 @@ int P_MVC()
   return 0;
 }
 
+/**
+ * @brief CVB  	@RRAB,@BUF  	0x4F	
+ *        4F 30 F0 3A
+ */
 int P_CVB()
 {
   ADDR = VR[B] + VR[X] + D;
@@ -410,12 +420,9 @@ int P_CVB()
   for (int i = 0; i < 15; i++)
   {
     ARG *= 10;
-    if (i % 2 == 0)
-    {
+    if (i % 2 == 0) {
       ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] >> 4;
-    }
-    else
-    {
+    } else {
       ARG += OBLZ[BAS_IND + CUR_IND + sm + (i / 2)] % 16;
     }
   }
@@ -423,12 +430,20 @@ int P_CVB()
   return 0;
 }
 
+/**
+ * @brief LR   	@RRAB1,@RRAB	0x18	
+ *        18 43
+ */
 int P_LR()
 {
     VR[R1] = VR[R2];
     return 0;
 }
 
+/**
+ * @brief N    	@RRAB1,@ONE 	0x54	
+ *        54 40 F0 32
+ */
 int P_N()
 {
   int sm;
@@ -442,6 +457,10 @@ int P_N()
   return 0;
 }
 
+/**
+ * @brief C    	@RRAB1,@ZERO	0x59	
+ *        59 40 F0 36
+ */
 int P_C()
 {
   int sm;
@@ -460,13 +479,17 @@ int P_C()
   return 0;
 }
 
+/**
+ * @brief BC   	6,@BREAK    	0x47	Если НЕ равно 0, то перейти к @BREAK (mask-bits: 0110)
+ *        47 60 F0 20
+ * 
+ *        BC   	15,@LOOP    	0x47	Безусловный переход к @LOOP
+ *        47 F0 F0 0A
+ */
 int P_BC()
 {
     ADDR = VR[B] + VR[X] + D;
-    /** Logical AND, Ex. 2 & 6 = 2, 0 & 6 = 0
-     * BC 6   @BREAK  Если НЕ равно 0, то перейти к @BREAK (mask-bits: 0110)
-     * BC 15  @LOOP   Безусловный переход к @LOOP
-     */
+    /** Logical AND, Ex. 2 & 6 = 2, 0 & 6 = 0*/
     if ((int)(cc & R1) != 0 || R1 == 15)
     {
         I = ADDR;
@@ -476,6 +499,10 @@ int P_BC()
     return 0;
 }
 
+/**
+ * @brief SLL  	@RRAB,1     	0x89	
+ *        89 30 00 01
+ */
 int P_SLL()
 {
   SLL_count++;
@@ -484,6 +511,10 @@ int P_SLL()
   return 0;
 }
 
+/**
+ * @brief SRL  	@RRAB,16    	0x88	
+ *        88 30 00 10
+ */
 int P_SRL()
 {
     ADDR = VR[B] + D;
@@ -491,6 +522,10 @@ int P_SRL()
     return 0;
 }
 
+/**
+ * @brief STH  	@RRAB, B    	0x40	Сохранине двоичные данные (полслова) в регистре @RRAB из B
+ *        40 30 F0 2E
+ */
 int P_STH()
 {
   char bytes[2];
@@ -747,23 +782,23 @@ int sys(void)
   wcyan = newwin(1, LEN_ROW_TEX, 23, 0);
   wbkgd(wcyan, COLOR_PAIR(COLOR_CYAN));
 
-  // дамп области загрузки 创建一个高度为 8、宽度为 67 的窗口，开始于屏幕的第 15 行，用于显示程序加载区域的数据或内存转储
-  wred = newwin(8, 67, 15, 0);
+  // дамп области загрузки 创建一个高度为 8、宽度为 GREEN_RED_LENGTH 的窗口，开始于屏幕的第 15 行，用于显示程序加载区域的数据或内存转储
+  wred = newwin(8, GREEN_RED_LENGTH, 15, 0);
   wbkgd(wred, COLOR_PAIR(COLOR_RED));
 
-  // поле регистров 高度为 16、宽度为 12 的窗口，从第 0 行开始并位于第 68 列，用于显示寄存器
-  wblue = newwin(16, 12, 0, 68);
+  // поле регистров 高度为 16、宽度为 BLUE_YELLOW_LENGTH 的窗口，从第 0 行开始并位于第 68 列，用于显示寄存器
+  wblue = newwin(16, BLUE_YELLOW_LENGTH, 0, 68);
   wbkgd(wblue, COLOR_PAIR(COLOR_BLUE));
 
-  // текст 窗口 wgreen，具有 11 行高和 67 列宽，起始位置位于 (0, 14)
+  // текст 窗口 wgreen，具有 11 行高和 GREEN_RED_LENGTH 列宽，起始位置位于 (0, 14)
   gr_pos_x = 0;
   gr_pos_y = 14;
   gr_y = 11;
-  wgreen = newwin(gr_y, 67, gr_pos_y, gr_pos_x); // создадим новое окно
+  wgreen = newwin(gr_y, GREEN_RED_LENGTH, gr_pos_y, gr_pos_x); // создадим новое окно
   wbkgd(wgreen, COLOR_PAIR(COLOR_GREEN));        // выбор цветовой пары
 
 // #####################################################################
-  wyellow = newwin(7, 12, 16, 68);
+  wyellow = newwin(7, BLUE_YELLOW_LENGTH, 16, 68);
   wbkgd(wyellow, COLOR_PAIR(COLOR_YELLOW));
 // #####################################################################
 
@@ -815,8 +850,8 @@ l0:
   {
     for (jj = 0; jj < gr_y - 1; jj++)
     {
-      // temp = mvwinnstr(wgreen, jj + 1, 0, wstr, 67);
-      // mvwaddnstr(wgreen, jj, 0, wstr, 67);
+      // temp = mvwinnstr(wgreen, jj + 1, 0, wstr, GREEN_RED_LENGTH);
+      // mvwaddnstr(wgreen, jj, 0, wstr, GREEN_RED_LENGTH);
       temp = mvwinnstr(wgreen, jj + 1, 0, wstr, -1);
       mvwaddnstr(wgreen, jj, 0, wstr, -1);
     }
@@ -866,6 +901,8 @@ l0:
   waddstr(wyellow, "┗━━━ ");
   wprintw(wyellow, "%i", cc);
   waddstr(wyellow, "\n");
+
+  // waddstr(wyellow, state_loop);
   wrefresh(wyellow);
   wclear(wyellow);
   // #####################################################################

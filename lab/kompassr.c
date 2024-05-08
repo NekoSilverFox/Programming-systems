@@ -16,7 +16,7 @@
 #define ENABLE_DEBUG      1
 unsigned char BUF_VAR[8];
 int arg;
-#define PRINT_ALL_LOG     0
+#define PRINT_ALL_LOG     1
 
 
 char NFIL[30] = "\x0";
